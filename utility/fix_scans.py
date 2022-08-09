@@ -1,10 +1,10 @@
 # script for fixing scan indices
 import sys
 
-if len(sys.argv) != 2:
+if len(sys.argv) != 4:
     print('Run fix_scans.py with the measure set as a single argument')
 
-myms = sys.argv[1]
+myms = sys.argv[3]
 
 tb.open(myms, nomodify=False)
 
