@@ -24,4 +24,3 @@ for i in range(len(default_field)):
 
 tb.putcol('SCAN_NUMBER', scans)
 tb.close()
-
