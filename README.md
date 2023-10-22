@@ -1,5 +1,5 @@
-# ATA-pipe
-Calibration pipeline for imaging correlator data taken with the Allen Telescope Array
+# Allen Telescope Array Radio Imaging
+Calibration pipeline for reducing and imaging correlator data taken with the Allen Telescope Array
 
 Requirements:
 Python >= 3.8
