@@ -35,3 +35,7 @@ tb.open(OUTPUTVIS + '/SPECTRAL_WINDOW')
 bandwidth_hz = tb.getcol('TOTAL_BANDWIDTH')[0]
 channel_frequencies_hz = tb.getcol('CHAN_FREQ')[:,0]
 N_channels = tb.getcol('NUM_CHAN')[0]
+
+# test change
+
+# test change 2
