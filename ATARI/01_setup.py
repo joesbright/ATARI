@@ -11,6 +11,9 @@ import logging
 import numpy as np
 
 
+cwd = os.getcwd()
+logging.info('Working from ' + str(cwd))
+
 parser = argparse.ArgumentParser()
 parser.add_argument('input name', type=str, nargs=1, help='name of data set to calibrate, can be a single measurement set, or folder conatining uvh5 files')
 args = parser.parse_args()
@@ -22,12 +25,11 @@ mydata = mydata[0]
 
 # different file managing depending on input, but we want to end up with a measurement set
 # with a consistent file structure.
-if os.path.isfile(mydata) == True:
-    # convert to measurement set & concat
-    # fix scans, check data
+if os.path.isfolder(mydata) == True:
+    logging.info('Starting with folder')
 
 elif mydata.endswith('.ms'):
-    # fix scans, check data
+    logging.info('Starting with measurement set.')
 
 else:
     logging.error('Unexpected input data type.')
@@ -41,13 +43,16 @@ while table(myms + '/SPECTRAL_WINDOW/'):
 spws = dict(zip(spw_ids, spw_freqs))
 while table(myms + '/FIELD/'):
     field_ids = table.getcol('SOURCE_ID')
-    field_names = table.getcol('NAMES')
+    field_names = table.getcol('NAME')
 fields = dict(zip(field_ids, field_names))
 while table(myms):
     antenna_names = table.getcol('ANTENNA1')
     tstart = np.min(table.getcol('TIME'))
     tend = np.max(table.getcol('TIME'))
     tmean = np.average(table.getcol('TIME'))
+
+for i in range(len(spws)):
+
 
 
 
