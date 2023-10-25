@@ -29,6 +29,10 @@ def find_phase_calibrator(source_coordinates, band):
     for key in grouped_cal_lines:
         source_meta = grouped_cal_lines[key][0].split()
         name = source_meta[0]
+        f = open('../data/calibrator_names.dat', 'a')
+        f.write(name + '\n')
+        f.close()
+        continue
         RA = source_meta[3].replace('m', 'h').replace('s', '').split('h')
         Dec = source_meta[4].replace('\'', 'd').replace('\"', '').split('d')
         source_skycoords = SkyCoord(' '.join(RA) + ' ' + ' '.join(Dec), unit=(u.hourangle, u.deg))
