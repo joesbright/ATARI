@@ -34,12 +34,12 @@ elif mydata.endswith('.ms'):
 else:
     logging.error('Unexpected input data type.')
 
-myms = 
+myms = 'testing.ms'
 
 while table(myms + '/DATA_DESCRIPTION/'):
     spw_ids = table.getcol('SPECTRAL_WINDOW_ID')
 while table(myms + '/SPECTRAL_WINDOW/'):
-    spw_freqs = table.getcol('SPECTRAL_WINDOW_ID') / 1.e9
+    spw_freqs = table.getcol('SPECTRAL_WINDOW_ID') / 1.e9 # in GHz
 spws = dict(zip(spw_ids, spw_freqs))
 while table(myms + '/FIELD/'):
     field_ids = table.getcol('SOURCE_ID')
@@ -51,7 +51,14 @@ while table(myms):
     tend = np.max(table.getcol('TIME'))
     tmean = np.average(table.getcol('TIME'))
 
-for i in range(len(spws)):
+# determine flux calibrators, phase calibrators, sources
+for key in fields:
+    if {'3c286', '3c48', '3c147'} in fields[key]:
+        fields[key] = [fields[key], 'FLUX_CAL']
+    elif:
+        in 
+    else:
+        fields[key] = [fields[key], 'TARGET']
 
 
 
