@@ -51,16 +51,14 @@ def find_phase_calibrator(source_coordinates, band):
 
     return(None)
 
-def match_calibrators(sources):
-
-    for source in sources:
-        if source in open('../data/calibrator_names.dat').read():
-            print(str(source) + ' is a phase calibrator')
+def match_calibrators(source):
+    iscal = False
+    if source in open('../data/calibrator_names.dat').read():
+        iscal = True
        
-
-    return(None)
+    return(iscal)
 
 test_source = SkyCoord('17 27 43.31 -16 12 19.23', unit=(u.hourangle, u.deg))
 band = 'L'
 #find_phase_calibrator(test_source, band)
-match_calibrators(['name', 'name', '1506+375', '1507-168'])
+print(match_calibrators('3c286'))
