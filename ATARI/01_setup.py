@@ -10,6 +10,8 @@ import pyuvdata
 import logging
 import numpy as np
 import find_phase_calibrator
+from astropy.coordinates import SkyCoord
+from astropy import units as u
 
 
 def match_calibrators(source):
@@ -53,7 +55,11 @@ spws = dict(zip(spw_ids, spw_freqs))
 with table(myms + '/FIELD/') as t:
     field_ids = t.getcol('SOURCE_ID')
     field_names = t.getcol('NAME')
+    field_ras = t.getcol('DELAY_DIR').squeeze()
+    field_decs = t.getcol('DELAY_DIR').squeeze()
 fields = dict(zip(field_ids, field_names))
+field_ras = dict(zip(field_ids, field_ras))
+field_decs = dict(zip(field_ids, field_decs))
 with table(myms) as t:
     antenna_names = t.getcol('ANTENNA1')
     tstart = np.min(t.getcol('TIME'))
@@ -69,7 +75,19 @@ for key in fields:
     else:
         fields[key] = [fields[key], 'TARGET']
 
+for key in fields:
+    if fields[key][1] == 'TARGET':
+        source_skycoords = SkyCoord(str(field_ras[key][0]) + ' ' + str(field_decs[key][1]), unit=(u.rad, u.rad))
+        for key2 in fields:
+            separation = np.inf
+            if fields[key2][1] == 'PHASE_CAL':
+                phase_skycoords = SkyCoord(str(field_ras[key2][0]) + ' ' + str(field_decs[key2][1]), unit=(u.rad, u.rad))
+                if source_skycoords.separation(phase_skycoords).deg < separation:
+                    separation = source_skycoords.separation(phase_skycoords).deg
+                    print(fields[key2][0] + ' is the phase calibrator for ' + fields[key][0])
+
 print(fields)
+print(field_ras)
 
 
 
