@@ -12,6 +12,7 @@ import numpy as np
 import find_phase_calibrator
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+import fix_scans
 
 
 def match_calibrators(source):
@@ -38,12 +39,16 @@ mydata = mydata[0]
 # with a consistent file structure.
 if os.path.isdir(mydata) == True:
     logging.info('Starting with folder')
+    # CONVERT TO MEASUREMENT SET FIRST
+    fix_scans.fix_scans(mydata)
 
 elif mydata.endswith('.ms'):
     logging.info('Starting with measurement set.')
+    fix_scans.fix_scans(mydata)
 
 else:
     logging.error('Unexpected input data type.')
+    # DIE GRACEFULLY
 
 myms = mydata
 
@@ -84,7 +89,9 @@ for key in fields:
                 phase_skycoords = SkyCoord(str(field_ras[key2][0]) + ' ' + str(field_decs[key2][1]), unit=(u.rad, u.rad))
                 if source_skycoords.separation(phase_skycoords).deg < separation:
                     separation = source_skycoords.separation(phase_skycoords).deg
-                    print(fields[key2][0] + ' is the phase calibrator for ' + fields[key][0])
+        print(fields[key2][0] + ' is the phase calibrator for ' + fields[key][0])
+
+
 
 print(fields)
 print(field_ras)
@@ -97,3 +104,6 @@ print(field_ras)
 # Fix antenna
 # unique_antenna = gf.get_unique_ants(myms)
 # write_casa_scripts.write_mstransform(myms, OUTPUTVIS, unique_antenna, '../scripts/000_FIX_ANTENNA.py')
+
+## For item in list_of_directories to reduce e.g. per target per spw/combined
+## DO 02/03/04/05 steps 
