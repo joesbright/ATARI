@@ -6,3 +6,4 @@ data/
 *.log
 *.pre
 *.pyc
+data/*spw*
