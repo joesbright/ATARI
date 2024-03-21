@@ -43,12 +43,16 @@ mydata = mydata[0]
 # with a consistent file structure.
 if os.path.isdir(mydata) == True:
     logging.info('Starting with folder')
+    # CONVERT TO MEASUREMENT SET FIRST
+    fix_scans.fix_scans(mydata)
 
 elif mydata.endswith('.ms'):
     logging.info('Starting with measurement set.')
+    fix_scans.fix_scans(mydata)
 
 else:
     logging.error('Unexpected input data type.')
+    # DIE GRACEFULLY
 
 myms = mydata
 
@@ -113,6 +117,8 @@ with table(mydata + '/STATE', readonly=False) as t:
     t.putcol('OBS_MODE', ['TEST','TEST','TEST', 'TEST', 'TEST'])
 
 field_matching = dict(zip(np.asarray(ordered_target_fields), np.asarray(ordered_pcal_fields)))
+
+
 
 print(fields)
 print(spws)
