@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.append(os.path.abspath('../utility'))
+sys.path.insert(0, os.path.abspath('../utility'))
 import general_functions as gf
 import write_casa_scripts
 import argparse
@@ -12,6 +12,9 @@ import numpy as np
 import find_phase_calibrator
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+import casacore
+import json
+import FGC
 
 
 def match_calibrators(source):
@@ -21,6 +24,8 @@ def match_calibrators(source):
        
     return(iscal)
 
+
+os.system('rm -r ../data/SWIFT*spw*')
 
 cwd = os.getcwd()
 logging.info('Working from ' + str(cwd))
@@ -67,13 +72,21 @@ with table(myms) as t:
     tmean = np.average(t.getcol('TIME'))
 
 # determine flux calibrators, phase calibrators, sources
+myintents = []
 for key in fields:
     if fields[key] in {'3c286', '3c48', '3c147'}:
         fields[key] = [fields[key], 'FLUX_CAL']
+        myintents.append('#FCAL')
     elif match_calibrators(fields[key]) == True:
         fields[key] = [fields[key], 'PHASE_CAL']
+        myintents.append('#GCAL')
     else:
         fields[key] = [fields[key], 'TARGET']
+        myintents.append('#TARGET')
+
+ordered_target_fields = []
+ordered_pcal_fields = []
+fcal_field = []
 
 for key in fields:
     if fields[key][1] == 'TARGET':
@@ -85,15 +98,57 @@ for key in fields:
                 if source_skycoords.separation(phase_skycoords).deg < separation:
                     separation = source_skycoords.separation(phase_skycoords).deg
                     print(fields[key2][0] + ' is the phase calibrator for ' + fields[key][0])
+                    ordered_target_fields.append(fields[key][0])
+                    ordered_pcal_fields.append(key2)
+    if fields[key][1] == 'FLUX_CAL':
+        fcal_field.append(key)
+
+myintents = np.array(myintents)
+myintents = np.asarray(['AMPLITUDE'])
+with table(mydata, readonly=False) as t:
+    mystates = t.getcol('STATE_ID')
+    t.putcol('STATE_ID', np.zeros(len(mystates)) + 1)
+
+with table(mydata + '/STATE', readonly=False) as t:
+    t.putcol('OBS_MODE', ['TEST','TEST','TEST', 'TEST', 'TEST'])
+
+field_matching = dict(zip(np.asarray(ordered_target_fields), np.asarray(ordered_pcal_fields)))
 
 print(fields)
+print(spws)
+print(antenna_names)
 print(field_ras)
+print(field_decs)
+print(field_matching)
 
+os.system('rm 1GC_.py')
+for key in fields:
+    if fields[key][1] == 'TARGET':
+        tm = table(mydata)
+        t = table(mydata + '/SOURCE')
+        for i, item in enumerate(t.getcol('NAME')):
+            if item == fields[key][0]:
+                print(i, item, t.getcol('SPECTRAL_WINDOW_ID'))
+                x = t.getcol('SPECTRAL_WINDOW_ID')[i]
+                y = [key, field_matching[fields[key][0]], fcal_field[0]]
+                t1 = casacore.tables.taql('SELECT FROM $tm WHERE (DATA_DESC_ID IN [SELECT SPECTRAL_WINDOW_ID FROM ::DATA_DESCRIPTION WHERE SPECTRAL_WINDOW_ID == $x])')
+                t2 = casacore.tables.taql('SELECT FROM $t1 WHERE FIELD_ID IN $y')
+                newdir  = '../data/' + fields[key][0] + '_' + 'spw' + str(x) + '/'
+                outfile = newdir + fields[key][0] + '_' + 'spw' + str(x) + '.ms'
+                os.mkdir(newdir)
+                t3 = t2.copy(outfile, True)
+                t1.close()
+                t2.close()
+                t3.close()
 
+                FGC.first_generation_calibration(outfile,
+                                                 key,
+                                                 fcal_field[0],
+                                                 field_matching[fields[key][0]],
+                                                 '1GC_.py',
+                                                 newdir)
 
-# Fix scans in original measure set
-# os.system('casa -c ../utility/fix_scans.py ' + myms)
+        t.close()
+        tm.close()
 
-# Fix antenna
-# unique_antenna = gf.get_unique_ants(myms)
-# write_casa_scripts.write_mstransform(myms, OUTPUTVIS, unique_antenna, '../scripts/000_FIX_ANTENNA.py')
+# WRITE SOME KIND OF STATUS FILE FOR THE NEXT STEP TO PICK

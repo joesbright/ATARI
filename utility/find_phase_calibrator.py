@@ -55,8 +55,9 @@ def match_calibrators(source):
     iscal = False
     if source in open('../data/calibrator_names.dat').read():
         iscal = True
+        mycal = source
        
-    return(iscal)
+    return(iscal, source)
 
 test_source = SkyCoord('17 27 43.31 -16 12 19.23', unit=(u.hourangle, u.deg))
 band = 'L'
