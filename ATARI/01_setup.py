@@ -17,6 +17,7 @@ import json
 import FGC
 import scipy as sp
 import math
+import fix_scans
 
 
 def match_calibrators(source):
@@ -59,6 +60,15 @@ else:
 
 myms = mydata
 
+with table(myms) as t:
+    scan_numbers = t.getcol('SCAN_NUMBER')
+
+if np.max(scan_numbers) == 0:
+    print('I EXPECT THAT THE SCAN NUMBERS HAVE NOT BEEN FIXED. FIXING.')
+    fix_scans.fix_scans(myms)
+else:
+    print('SCANS ARE FINE. CONTINUE.')
+
 with table(myms + '/DATA_DESCRIPTION/') as t:
     spw_ids = t.getcol('SPECTRAL_WINDOW_ID')
 with table(myms + '/SPECTRAL_WINDOW/') as t:
@@ -77,6 +87,9 @@ with table(myms) as t:
     tstart = np.min(t.getcol('TIME'))
     tend = np.max(t.getcol('TIME'))
     tmean = np.average(t.getcol('TIME'))
+    
+
+
 
 # determine flux calibrators, phase calibrators, sources
 myintents = []
