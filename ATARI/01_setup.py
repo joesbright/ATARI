@@ -15,6 +15,8 @@ from astropy import units as u
 import casacore
 import json
 import FGC
+import scipy as sp
+import math
 
 
 def match_calibrators(source):
@@ -26,6 +28,7 @@ def match_calibrators(source):
 
 
 os.system('rm -r ../data/SWIFT*spw*')
+os.system('rm -r ../data/GRS*spw*')
 
 cwd = os.getcwd()
 logging.info('Working from ' + str(cwd))
@@ -44,11 +47,11 @@ mydata = mydata[0]
 if os.path.isdir(mydata) == True:
     logging.info('Starting with folder')
     # CONVERT TO MEASUREMENT SET FIRST
-    fix_scans.fix_scans(mydata)
+#    fix_scans.fix_scans(mydata)
 
 elif mydata.endswith('.ms'):
     logging.info('Starting with measurement set.')
-    fix_scans.fix_scans(mydata)
+#    fix_scans.fix_scans(mydata)
 
 else:
     logging.error('Unexpected input data type.')
@@ -128,6 +131,9 @@ print(field_decs)
 print(field_matching)
 
 os.system('rm 1GC_.py')
+os.system('rm image_.sh')
+os.system('rm *.fits')
+
 for key in fields:
     if fields[key][1] == 'TARGET':
         tm = table(mydata)
@@ -142,17 +148,36 @@ for key in fields:
                 newdir  = '../data/' + fields[key][0] + '_' + 'spw' + str(x) + '/'
                 outfile = newdir + fields[key][0] + '_' + 'spw' + str(x) + '.ms'
                 os.mkdir(newdir)
+                os.mkdir(newdir + 'IMAGES')
+                os.mkdir(newdir + 'CALIBRATION_TABLES')
+                os.mkdir(newdir + 'PLOTS')
                 t3 = t2.copy(outfile, True)
                 t1.close()
                 t2.close()
                 t3.close()
+
+                print(str(x) + '<-------')
+                print(str(spws[x]) + '<-------')
+                cell = ((sp.constants.c / (spws[x] * 1.e9)) / 300.) * (180. / sp.constants.pi) * 60. * 60. / 6.
+                imsize = ((sp.constants.c / (spws[x] * 1.e9)) / 6.1) * (180. / sp.constants.pi) * 60. * 60. / cell
+                imsize = int(2. ** (math.ceil(np.log2(imsize)) + 1))
+                
 
                 FGC.first_generation_calibration(outfile,
                                                  key,
                                                  fcal_field[0],
                                                  field_matching[fields[key][0]],
                                                  '1GC_.py',
-                                                 newdir)
+                                                 newdir + 'CALIBRATION_TABLES/')
+
+                FGC.image_all_fields(outfile,
+                                     key,
+                                     fcal_field[0],
+                                     field_matching[fields[key][0]],
+                                     'image_.sh',
+                                     imsize,
+                                     cell,
+                                     newdir + 'IMAGES/')
 
         t.close()
         tm.close()

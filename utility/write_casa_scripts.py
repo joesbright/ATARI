@@ -19,7 +19,6 @@ def write_setjy(vis,
                 script_name):
     
     f = open(script_name, 'a')
-    f.write('#####' + str(vis) + '#####\n')
 
     args = 'vis=\''
     args += vis + '\','
@@ -157,7 +156,24 @@ def write_applycal(vis, field, gaintable, gainfield, interp, calwt, script_name,
     args += 'calwt='
     args += calwt + ''
 
-
-
     f.write('applycal(' + args + ')\n')
+    f.close()
+
+def write_flagdata(vis, script_name):
+
+    f = open(script_name, 'a')
+    f.write('#####' + str(vis) + '#####\n')
+
+    args = 'vis=\''
+    args += vis + '\','
+    args += 'mode=\'tfcrop\''
+
+    f.write('flagdata(' + args + ')\n')
+
+
+    args = 'vis=\''
+    args += vis + '\','
+    args += 'mode=\'rflag\''
+
+    f.write('flagdata(' + args + ')\n')
     f.close()
