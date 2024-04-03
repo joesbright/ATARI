@@ -134,6 +134,7 @@ os.system('rm 1GC_.py')
 os.system('rm image_.sh')
 os.system('rm *.fits')
 
+vislist = []
 for key in fields:
     if fields[key][1] == 'TARGET':
         tm = table(mydata)
@@ -147,6 +148,7 @@ for key in fields:
                 t2 = casacore.tables.taql('SELECT FROM $t1 WHERE FIELD_ID IN $y')
                 newdir  = '../data/' + fields[key][0] + '_' + 'spw' + str(x) + '/'
                 outfile = newdir + fields[key][0] + '_' + 'spw' + str(x) + '.ms'
+                vislist.append(outfile)
                 os.mkdir(newdir)
                 os.mkdir(newdir + 'IMAGES')
                 os.mkdir(newdir + 'CALIBRATION_TABLES')
@@ -178,8 +180,17 @@ for key in fields:
                                      imsize,
                                      cell,
                                      newdir + 'IMAGES/')
+            
 
         t.close()
         tm.close()
+
+FGC.deep_image(
+    vislist,
+    2,
+    'image_.sh',
+    imsize,
+    cell,
+    newdir + 'IMAGES/')
 
 # WRITE SOME KIND OF STATUS FILE FOR THE NEXT STEP TO PICK

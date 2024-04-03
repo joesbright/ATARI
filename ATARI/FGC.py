@@ -44,3 +44,14 @@ def image_all_fields(myms,
     write_wsclean_scripts.write_wsclean(myms, target, flux_cal, phase_cal, script_name, size, scale, outdir)
     
     return None
+
+def deep_image(vislist,
+               field,
+               script_name,
+               imsize,
+               cell,
+               outdir):
+    
+    write_wsclean_scripts.write_deep_image(vislist, field, script_name, imsize, cell, outdir)
+    
+    return None
