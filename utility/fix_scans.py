@@ -1,7 +1,7 @@
 from pyrap.tables import table
 
 def fix_scans(myms):
-    with table(myms, nomodify=False) as t:
+    with table(myms, readonly=False) as t:
         default_field = t.getcol('FIELD_ID')
         default_scans = t.getcol('SCAN_NUMBER')
         scans = default_scans
@@ -15,5 +15,6 @@ def fix_scans(myms):
                 scans[i] = scan_count
             else:
                 scans[i] = scan_count
+        t.putcol('SCAN_NUMBER', scans)
 
     return()

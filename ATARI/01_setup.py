@@ -18,6 +18,8 @@ import FGC
 import scipy as sp
 import math
 import fix_scans
+import glob
+from pyuvdata import UVData
 
 
 def match_calibrators(source):
@@ -27,15 +29,16 @@ def match_calibrators(source):
        
     return(iscal)
 
-
 os.system('rm -r ../data/SWIFT*spw*')
 os.system('rm -r ../data/GRS*spw*')
+os.system('rm -r ../data/sn2023*spw*')
+os.system('rm -r ../data/sn2024*spw*')
 
 cwd = os.getcwd()
 logging.info('Working from ' + str(cwd))
 
 parser = argparse.ArgumentParser()
-parser.add_argument('msname', type=str, nargs=1, help='name of data set to calibrate, can be a single measurement set, or folder conatining uvh5 files')
+parser.add_argument('msname', type=str, nargs=1, help='name of data set to calibrate, can be a single measurement set, or folder conatining uvh5 files (only measurement sets currently implemented).')
 args = parser.parse_args()
 
 mydata = args.msname
@@ -45,25 +48,43 @@ mydata = mydata[0]
 
 # different file managing depending on input, but we want to end up with a measurement set
 # with a consistent file structure.
-if os.path.isdir(mydata) == True:
+if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.endswith('.ms/') == False:
     logging.info('Starting with folder')
     # CONVERT TO MEASUREMENT SET FIRST
-#    fix_scans.fix_scans(mydata)
+    myuvfiles_C = glob.glob('mydata/LoC*/' + '*.uvh5')
+    myuvfiles_B = glob.glob('mydata/LoB*/' + '*.uvh5')
 
-elif mydata.endswith('.ms'):
+    uvd_C = UVData()
+    uvd_C.read(myuvfiles_C, fix_old_proj=False)
+    print("Writing LoC ms file")
+    uvd_C.write_ms(mydata + "LO_C.ms")
+
+    uvd_B = UVData()
+    uvd_B.read(myuvfiles_B, fix_old_proj=False)
+    print("Writing LoB ms file")
+    uvd_B.write_ms(mydata + "LO_B.ms")
+
+    casacore.tables.msconcat([mydata + "LO_C.ms", mydata + "LO_B.ms"], 'master_ms.ms')
+
+    mydata = 'master_ms.ms'
+
+    fix_scans.fix_scans(mydata)
+
+elif mydata.endswith('.ms') or mydata.endswith('.ms/'):
     logging.info('Starting with measurement set.')
-#    fix_scans.fix_scans(mydata)
+    fix_scans.fix_scans(mydata)
 
 else:
     logging.error('Unexpected input data type.')
-    # DIE GRACEFULLY
 
 myms = mydata
 
 with table(myms) as t:
     scan_numbers = t.getcol('SCAN_NUMBER')
 
-if np.max(scan_numbers) == 0:
+print(scan_numbers)
+
+if len(set(scan_numbers)) == 1:
     print('I EXPECT THAT THE SCAN NUMBERS HAVE NOT BEEN FIXED. FIXING.')
     fix_scans.fix_scans(myms)
 else:
@@ -88,9 +109,6 @@ with table(myms) as t:
     tend = np.max(t.getcol('TIME'))
     tmean = np.average(t.getcol('TIME'))
     
-
-
-
 # determine flux calibrators, phase calibrators, sources
 myintents = []
 for key in fields:
@@ -134,15 +152,6 @@ with table(mydata + '/STATE', readonly=False) as t:
 
 field_matching = dict(zip(np.asarray(ordered_target_fields), np.asarray(ordered_pcal_fields)))
 
-
-
-print(fields)
-print(spws)
-print(antenna_names)
-print(field_ras)
-print(field_decs)
-print(field_matching)
-
 os.system('rm 1GC_.py')
 os.system('rm image_.sh')
 os.system('rm *.fits')
@@ -171,9 +180,7 @@ for key in fields:
                 t2.close()
                 t3.close()
 
-                print(str(x) + '<-------')
-                print(str(spws[x]) + '<-------')
-                cell = ((sp.constants.c / (spws[x] * 1.e9)) / 300.) * (180. / sp.constants.pi) * 60. * 60. / 6.
+                cell = ((sp.constants.c / (spws[x] * 1.e9)) / 300.) * (180. / sp.constants.pi) * 60. * 60. / 8.
                 imsize = ((sp.constants.c / (spws[x] * 1.e9)) / 6.1) * (180. / sp.constants.pi) * 60. * 60. / cell
                 imsize = int(2. ** (math.ceil(np.log2(imsize)) + 1))
                 
@@ -193,7 +200,6 @@ for key in fields:
                                      imsize,
                                      cell,
                                      newdir + 'IMAGES/')
-            
 
         t.close()
         tm.close()
@@ -206,4 +212,3 @@ FGC.deep_image(
     cell,
     newdir + 'IMAGES/')
 
-# WRITE SOME KIND OF STATUS FILE FOR THE NEXT STEP TO PICK
