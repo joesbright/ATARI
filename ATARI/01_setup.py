@@ -29,11 +29,6 @@ def match_calibrators(source):
        
     return(iscal)
 
-os.system('rm -r ../data/SWIFT*spw*')
-os.system('rm -r ../data/GRS*spw*')
-os.system('rm -r ../data/sn2023*spw*')
-os.system('rm -r ../data/sn2024*spw*')
-
 cwd = os.getcwd()
 logging.info('Working from ' + str(cwd))
 
@@ -152,9 +147,9 @@ with table(mydata + '/STATE', readonly=False) as t:
 
 field_matching = dict(zip(np.asarray(ordered_target_fields), np.asarray(ordered_pcal_fields)))
 
-os.system('rm 1GC_.py')
-os.system('rm image_.sh')
-os.system('rm *.fits')
+#os.system('rm 1GC_.py')
+#os.system('rm image_.sh')
+#os.system('rm *.fits')
 
 vislist = []
 for key in fields:
