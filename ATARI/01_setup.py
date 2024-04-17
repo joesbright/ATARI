@@ -61,7 +61,7 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
 
     casacore.tables.msconcat([mydata + "LO_C.ms", mydata + "LO_B.ms"], 'master_ms.ms')
 
-    mydata = 'master_ms.ms'
+    mydata = mydata + 'master_ms.ms'
 
     fix_scans.fix_scans(mydata)
 
