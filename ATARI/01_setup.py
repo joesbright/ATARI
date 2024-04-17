@@ -46,8 +46,8 @@ mydata = mydata[0]
 if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.endswith('.ms/') == False:
     logging.info('Starting with folder')
     # CONVERT TO MEASUREMENT SET FIRST
-    myuvfiles_C = glob.glob('mydata/LoC*/' + '*.uvh5')
-    myuvfiles_B = glob.glob('mydata/LoB*/' + '*.uvh5')
+    myuvfiles_C = glob.glob(mydata + '/LoC*/' + '*.uvh5')
+    myuvfiles_B = glob.glob(mydata + '/LoB*/' + '*.uvh5')
 
     uvd_C = UVData()
     uvd_C.read(myuvfiles_C, fix_old_proj=False)
