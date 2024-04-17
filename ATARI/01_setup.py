@@ -59,7 +59,7 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     print("Writing LoB ms file")
     uvd_B.write_ms(mydata + "LO_B.ms")
 
-    casacore.tables.msconcat([mydata + "LO_C.ms", mydata + "LO_B.ms"], 'master_ms.ms')
+    casacore.tables.msconcat([mydata + "LO_C.ms", mydata + "LO_B.ms"], mydata + 'master_ms.ms')
 
     mydata = mydata + 'master_ms.ms'
 
