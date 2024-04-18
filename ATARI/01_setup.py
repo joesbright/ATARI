@@ -34,9 +34,12 @@ logging.info('Working from ' + str(cwd))
 
 parser = argparse.ArgumentParser()
 parser.add_argument('msname', type=str, nargs=1, help='name of data set to calibrate, can be a single measurement set, or folder conatining uvh5 files (only measurement sets currently implemented).')
+parser.add_argument('--casapath', type=str, nargs=1, help='Path to CASA. Needs this if an alias is used.', default='casa')
 args = parser.parse_args()
 
 mydata = args.msname
+casapath = args.casapath
+
 if len(mydata) != 1:
     logging.error('Only one dataset should be given. Exiting.')
 mydata = mydata[0]
@@ -72,7 +75,7 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     f = open('concat_commands.py', 'w')
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + 'master_ms.ms\')')
     f.close()
-    os.system('casa --nologger --log2term --nologfile -c concat_commands.py')
+    os.system(casapath + ' --nologger --log2term --nologfile -c concat_commands.py')
 
     mydata = mydata + 'master_ms.ms'
 
