@@ -49,17 +49,30 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     myuvfiles_C = glob.glob(mydata + '/uvh5*/LoC*/' + '*.uvh5')
     myuvfiles_B = glob.glob(mydata + '/uvh5*/LoB*/' + '*.uvh5')
 
-    uvd_C = UVData()
-    uvd_C.read(myuvfiles_C, fix_old_proj=False)
-    print("Writing LoC ms file")
-    uvd_C.write_ms(mydata + "LO_C.ms")
+    fields = []
+    for file in myuvfiles_C:
+        fields.append(file.split('/')[-1].split('_')[4])
+    unique_fields = list(set(fields))
 
-    uvd_B = UVData()
-    uvd_B.read(myuvfiles_B, fix_old_proj=False)
-    print("Writing LoB ms file")
-    uvd_B.write_ms(mydata + "LO_B.ms")
+    final_concat = []
+    for field in unique_fields:
+        for folder in glob.glob(mydata + '/uvh5*' + field + '*/'):
+            uvd_C = UVData()
+            uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
+            uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
+            fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
+            final_concat.append(folder.rstrip('/') + '_LoC.ms')
 
-    casacore.tables.msconcat([mydata + "LO_C.ms", mydata + "LO_B.ms"], mydata + 'master_ms.ms')
+            uvd_B = UVData()
+            uvd_B.read(glob.glob(folder + 'LoB*/*.uvh5'), fix_old_proj=False)
+            uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
+            fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
+            final_concat.append(folder.rstrip('/') + '_LoB.ms')
+
+    f = open('concat_commands.py', 'w')
+    f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + 'master_ms.ms\')')
+    f.close()
+    os.system('casa --nologger --log2term --nologfile -c concat_commands.py')
 
     mydata = mydata + 'master_ms.ms'
 

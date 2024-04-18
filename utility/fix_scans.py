@@ -1,4 +1,6 @@
 from pyrap.tables import table
+import numpy as np
+
 
 def fix_scans(myms):
     with table(myms, readonly=False) as t:
@@ -16,5 +18,14 @@ def fix_scans(myms):
             else:
                 scans[i] = scan_count
         t.putcol('SCAN_NUMBER', scans)
+
+    return()
+
+def fix_spw(myms):
+    with table(myms + '/SOURCE', readonly=False) as t:
+        default_ids = t.getcol('SPECTRAL_WINDOW_ID')
+        new_ids = np.zeros(len(default_ids))
+
+        t.putcol('SPECTRAL_WINDOW_ID', new_ids)
 
     return()

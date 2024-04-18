@@ -13,13 +13,16 @@ def write_wsclean(vis,
     for field in [target, flux_cal, phase_cal]:
 
         args = 'wsclean '
-        args += '-niter 1000 '
+        args += '-niter 5000 '
         args += '-size ' + str(size) + ' ' + str(size) + ' '
         args += '-scale ' + str(scale) + 'asec '
         args += '-field ' + str(field) + ' '
         args += '-reorder '
-        args += '-name ' + outdir + str(field) + '_automask '
+        args += '-name ' + outdir + str(field) + '_nomask '
         args += '-data-column CORRECTED_DATA '
+        args += '-join-channels '
+        args += '-channels-out 4 '
+        args += '-fit-spectral-pol 2 '
         args += vis
 
         f.write(args + '\n')
@@ -41,7 +44,7 @@ def write_deep_image(vislist,
     args += '-scale ' + str(scale) + 'asec '
     args += '-field ' + str(field) + ' '
     args += '-reorder '
-    args += '-name ' + outdir + str(field) + '_automask_deep '
+    args += '-name ' + outdir + str(field) + '_nomask_deep '
     args += '-data-column CORRECTED_DATA '
     args += ' '.join(vislist)
 
