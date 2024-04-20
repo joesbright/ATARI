@@ -38,7 +38,7 @@ parser.add_argument('--casapath', type=str, nargs=1, help='Path to CASA. Needs t
 args = parser.parse_args()
 
 mydata = args.msname
-casapath = args.casapath
+casapath = args.casapath[0]
 
 if len(mydata) != 1:
     logging.error('Only one dataset should be given. Exiting.')
