@@ -13,6 +13,7 @@ import find_phase_calibrator
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from casacore.tables import table
+import casacore.tables
 import json
 import FGC
 import scipy as sp
