@@ -5,14 +5,14 @@ import general_functions as gf
 import write_casa_scripts
 import argparse
 import astropy
-from pyrap.tables import table
+#from pyrap.tables import table
 import pyuvdata
 import logging
 import numpy as np
 import find_phase_calibrator
 from astropy.coordinates import SkyCoord
 from astropy import units as u
-import casacore
+from casacore.tables import table
 import json
 import FGC
 import scipy as sp
