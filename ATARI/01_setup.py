@@ -73,7 +73,7 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
             final_concat.append(folder.rstrip('/') + '_LoB.ms')
 
     f = open('concat_commands.py', 'w')
-    f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + 'master_ms.ms\')')
+    f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms.ms\')')
     f.close()
     os.system(casapath + ' --nologger --log2term --nologfile -c concat_commands.py')
 
