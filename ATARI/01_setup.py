@@ -77,7 +77,7 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     f.close()
     os.system(casapath + ' --nologger --log2term --nologfile -c concat_commands.py')
 
-    mydata = mydata + 'master_ms.ms'
+    mydata = mydata + '/master_ms.ms'
 
     fix_scans.fix_scans(mydata)
 
