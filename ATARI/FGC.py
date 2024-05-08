@@ -29,6 +29,7 @@ def first_generation_calibration(myms,
     write_casa_scripts.write_applycal(myms, flux_cal, [flux_table,K0_table,B0_table,G0_table], [str(flux_cal), '',''], ['nearest','',''], 'False', script_name, outdir)
     write_casa_scripts.write_applycal(myms, phase_cal, [flux_table,K0_table,B0_table,G0_table], [str(phase_cal), '',''], ['nearest','',''], 'False', script_name, outdir)
     write_casa_scripts.write_applycal(myms, target, [flux_table,K0_table,B0_table,G0_table], [str(phase_cal), '',''], ['linear','',''], 'False', script_name, outdir)
+    write_casa_scripts.write_flagdata(myms, script_name)
 
     return None
 
