@@ -12,7 +12,7 @@ def first_generation_calibration(myms,
                                  outdir):
     
     G0_table = str(flux_cal) + '.G0'
-    K0_table = str(flux_cal) + '.G0'
+    K0_table = str(flux_cal) + '.K0'
     B0_table = str(flux_cal) + '.B0'
     G1_table = str(flux_cal) + '.G1'
     flux_table = str(flux_cal) + '.fluxscale'
