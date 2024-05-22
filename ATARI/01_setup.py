@@ -14,13 +14,14 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from casacore.tables import table
 import casacore.tables
-import json
 import FGC
 import scipy as sp
 import math
 import fix_scans
 import glob
 from pyuvdata import UVData
+from termcolor import colored
+
 
 
 def match_calibrators(source):
@@ -36,10 +37,12 @@ logging.info('Working from ' + str(cwd))
 parser = argparse.ArgumentParser()
 parser.add_argument('msname', type=str, nargs=1, help='name of data set to calibrate, can be a single measurement set, or folder conatining uvh5 files (only measurement sets currently implemented).')
 parser.add_argument('--casapath', type=str, nargs=1, help='Path to CASA. Needs this if an alias is used.', default='casa')
+parser.add_argument('--chanbin', type=str, nargs=1, help='number of 0.5 MHz channels to average together', default='8')
 args = parser.parse_args()
 
 mydata = args.msname
 casapath = args.casapath[0]
+chanbin = args.chanbin[0]
 
 if len(mydata) != 1:
     logging.error('Only one dataset should be given. Exiting.')
@@ -73,10 +76,13 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
             fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
             final_concat.append(folder.rstrip('/') + '_LoB.ms')
 
-    f = open('concat_commands.py', 'w')
-    f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms.ms\')')
+    f = open('concat_avg_commands.py', 'w')
+    f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
+    f.write('\n')
+    f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
     f.close()
-    os.system(casapath + ' --nologger --log2term --nologfile -c concat_commands.py')
+    os.system(casapath + ' --nologger --log2term --nologfile -c concat_avg_commands.py')
+    os.system('rm -r ' + mydata + '/master_ms_tmp.ms')
 
     mydata = mydata + '/master_ms.ms'
 
@@ -196,9 +202,11 @@ for key in fields:
                 imsize = ((sp.constants.c / (spws[x] * 1.e9)) / 6.1) * (180. / sp.constants.pi) * 60. * 60. / cell
                 imsize = int(2. ** (math.ceil(np.log2(imsize)) + 1))
                 
+                print(colored('Look Here', 'red'))
+                print(key, fcal_field, field_matching)
 
                 FGC.first_generation_calibration(outfile,
-                                                 key,
+                                                 item,
                                                  fcal_field[0],
                                                  field_matching[fields[key][0]],
                                                  '1GC_.py',
