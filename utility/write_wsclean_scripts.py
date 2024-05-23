@@ -1,7 +1,10 @@
 def write_wsclean(vis, 
                 target,
                 flux_cal,
-                phase_cal, 
+                phase_cal,
+                target_name,
+                flux_cal_name,
+                phase_cal_name,
                 script_name,
                 size,
                 scale,
@@ -10,7 +13,8 @@ def write_wsclean(vis,
     f = open(script_name, 'a')
     f.write('#####' + str(vis) + '#####\n')
 
-    for field in [target, flux_cal, phase_cal]:
+    names = [target_name, flux_cal_name, phase_cal_name]
+    for i, field in enumerate([target, flux_cal, phase_cal]):
 
         args = 'wsclean '
         args += '-niter 5000 '
@@ -18,7 +22,7 @@ def write_wsclean(vis,
         args += '-scale ' + str(scale) + 'asec '
         args += '-field ' + str(field) + ' '
         args += '-reorder '
-        args += '-name ' + outdir + str(field) + '_nomask '
+        args += '-name ' + outdir + str(names[i]) + '_nomask '
         args += '-data-column CORRECTED_DATA '
         args += '-join-channels '
         args += '-channels-out 4 '

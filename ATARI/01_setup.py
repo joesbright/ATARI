@@ -45,13 +45,13 @@ casapath = args.casapath[0]
 chanbin = args.chanbin[0]
 
 if len(mydata) != 1:
-    logging.error('Only one dataset should be given. Exiting.')
+    print(colored('Only one dataset should be given. Exiting.', 'red'))
 mydata = mydata[0]
 
 # different file managing depending on input, but we want to end up with a measurement set
 # with a consistent file structure.
 if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.endswith('.ms/') == False:
-    logging.info('Starting with folder')
+    print(colored('Starting with folder: ' + mydata + '.', 'red'))
     # CONVERT TO MEASUREMENT SET FIRST
     myuvfiles_C = glob.glob(mydata + '/uvh5*/LoC*/' + '*.uvh5')
     myuvfiles_B = glob.glob(mydata + '/uvh5*/LoB*/' + '*.uvh5')
@@ -76,11 +76,14 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
             fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
             final_concat.append(folder.rstrip('/') + '_LoB.ms')
 
+    print(colored('Combining spectral chunks.', 'red'))
+
     f = open('concat_avg_commands.py', 'w')
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
     f.write('\n')
     f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
     f.close()
+    print(colored('Averaging data.', 'red'))
     os.system(casapath + ' --nologger --log2term --nologfile -c concat_avg_commands.py')
     os.system('rm -r ' + mydata + '/master_ms_tmp.ms')
 
@@ -89,8 +92,7 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     fix_scans.fix_scans(mydata)
 
 elif mydata.endswith('.ms') or mydata.endswith('.ms/'):
-    logging.info('Starting with measurement set.')
-    fix_scans.fix_scans(mydata)
+    print(colored('Starting with measurement set: ' + mydata + '.', 'red'))
 
 else:
     logging.error('Unexpected input data type.')
@@ -100,13 +102,11 @@ myms = mydata
 with table(myms) as t:
     scan_numbers = t.getcol('SCAN_NUMBER')
 
-print(scan_numbers)
-
 if len(set(scan_numbers)) == 1:
-    print('I EXPECT THAT THE SCAN NUMBERS HAVE NOT BEEN FIXED. FIXING.')
+    print(colored('I suspect that the scan numbers have not been fixed. Fixing.', 'red'))
     fix_scans.fix_scans(myms)
 else:
-    print('SCANS ARE FINE. CONTINUE.')
+    print(colored('Scan numbers are incremented correctly, continuing.', 'red'))
 
 with table(myms + '/DATA_DESCRIPTION/') as t:
     spw_ids = t.getcol('SPECTRAL_WINDOW_ID')
@@ -132,6 +132,8 @@ myintents = []
 for key in fields:
     if fields[key] in {'3c286', '3c48', '3c147'}:
         fields[key] = [fields[key], 'FLUX_CAL']
+        fcal_name = fields[key][0]
+        print(colored('The flux calibrator is ' + str(fcal_name) + '.', 'red'))
         myintents.append('#FCAL')
     elif match_calibrators(fields[key]) == True:
         fields[key] = [fields[key], 'PHASE_CAL']
@@ -153,7 +155,7 @@ for key in fields:
                 phase_skycoords = SkyCoord(str(field_ras[key2][0]) + ' ' + str(field_decs[key2][1]), unit=(u.rad, u.rad))
                 if source_skycoords.separation(phase_skycoords).deg < separation:
                     separation = source_skycoords.separation(phase_skycoords).deg
-                    print(fields[key2][0] + ' is the phase calibrator for ' + fields[key][0])
+                    print(colored(fields[key2][0] + ' is the phase calibrator for ' + fields[key][0], 'red'))
                     ordered_target_fields.append(fields[key][0])
                     ordered_pcal_fields.append(key2)
     if fields[key][1] == 'FLUX_CAL':
@@ -173,6 +175,8 @@ field_matching = dict(zip(np.asarray(ordered_target_fields), np.asarray(ordered_
 #os.system('rm 1GC_.py')
 #os.system('rm image_.sh')
 #os.system('rm *.fits')
+#os.system('rm -r ../data/*_spw*')
+#os.system('rm -r ../data/DEEP_IMAGE')
 
 vislist = []
 for key in fields:
@@ -181,7 +185,6 @@ for key in fields:
         t = table(mydata + '/SOURCE')
         for i, item in enumerate(t.getcol('NAME')):
             if item == fields[key][0]:
-                print(i, item, t.getcol('SPECTRAL_WINDOW_ID'))
                 x = t.getcol('SPECTRAL_WINDOW_ID')[i]
                 y = [key, field_matching[fields[key][0]], fcal_field[0]]
                 t1 = casacore.tables.taql('SELECT FROM $tm WHERE (DATA_DESC_ID IN [SELECT SPECTRAL_WINDOW_ID FROM ::DATA_DESCRIPTION WHERE SPECTRAL_WINDOW_ID == $x])')
@@ -201,14 +204,11 @@ for key in fields:
                 cell = ((sp.constants.c / (spws[x] * 1.e9)) / 300.) * (180. / sp.constants.pi) * 60. * 60. / 8.
                 imsize = ((sp.constants.c / (spws[x] * 1.e9)) / 6.1) * (180. / sp.constants.pi) * 60. * 60. / cell
                 imsize = int(2. ** (math.ceil(np.log2(imsize)) + 1))
-                
-                print(colored('Look Here', 'red'))
-                print(key, fcal_field, field_matching)
 
                 FGC.first_generation_calibration(outfile,
                                                  item,
-                                                 fcal_field[0],
-                                                 field_matching[fields[key][0]],
+                                                 fcal_name,
+                                                 fields[field_matching[item]][0],
                                                  '1GC_.py',
                                                  newdir + 'CALIBRATION_TABLES/')
 
@@ -216,6 +216,9 @@ for key in fields:
                                      key,
                                      fcal_field[0],
                                      field_matching[fields[key][0]],
+                                     item,
+                                     fcal_name,
+                                     fields[field_matching[item]][0],
                                      'image_.sh',
                                      imsize,
                                      cell,
@@ -224,11 +227,13 @@ for key in fields:
         t.close()
         tm.close()
 
+os.mkdir('../data/DEEP_IMAGE/')
+
 FGC.deep_image(
     vislist,
-    2,
+    item,
     'image_.sh',
     imsize,
     cell,
-    newdir + 'IMAGES/')
+    '../data/DEEP_IMAGE/')
 

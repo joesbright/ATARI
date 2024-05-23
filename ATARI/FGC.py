@@ -31,18 +31,38 @@ def first_generation_calibration(myms,
     write_casa_scripts.write_applycal(myms, target, [flux_table,K0_table,B0_table,G0_table], [str(phase_cal), '',''], ['linear','',''], 'False', script_name, outdir)
     write_casa_scripts.write_flagdata(myms, script_name)
 
+    # calculations go here based on corrected data column
+    # tb.open(myms)
+    # corr = tb.getcol('CORRECTED_DATA')
+    # field = tb.getcol('FIELD_ID')
+    # flag = tb.getcol('FLAG')
+    # expanded_field = np.tile(field, (168, 1)) 
+    # np.absolute(ma.masked_where((expanded_field==1) | (expanded_field==2), ma.masked_array(corr[0,:,:], flag[0,:,:]))) 
+
+    # for item in [target, flux_cal, phase_cal]:
+    #   flagged_xx = np.absolute(ma.masked_where(expanded_field != item, ma.masked_array(corr[0,:,:], flag[0,:,:])))
+    #   flagged_yy = np.absolute(ma.masked_where(expanded_field != item, ma.masked_array(corr[3,:,:], flag[3,:,:])))
+    #   flagged_I = np.mean(flagged_xx, flagged_yy)
+    #   std = np.std(flagged_I)
+    #   avg = np.mean(flagged_I)
+    #   clip_upper = avg + 4. * std
+    #   clip_lower = avg - 4. * std
+
     return None
 
 def image_all_fields(myms,
                   target,
                   flux_cal,
                   phase_cal,
+                  target_name,
+                  flux_cal_name,
+                  phase_cal_name,
                   script_name,
                   size,
                   scale,
                   outdir):
     
-    write_wsclean_scripts.write_wsclean(myms, target, flux_cal, phase_cal, script_name, size, scale, outdir)
+    write_wsclean_scripts.write_wsclean(myms, target, flux_cal, phase_cal, target_name, flux_cal_name, phase_cal_name, script_name, size, scale, outdir)
     
     return None
 
