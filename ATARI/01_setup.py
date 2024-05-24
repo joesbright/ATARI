@@ -67,29 +67,30 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
             uvd_C = UVData()
             uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
             uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
-            #fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
+            fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
             final_concat.append(folder.rstrip('/') + '_LoC.ms')
 
             uvd_B = UVData()
             uvd_B.read(glob.glob(folder + 'LoB*/*.uvh5'), fix_old_proj=False)
             uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
-            #fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
+            fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
             final_concat.append(folder.rstrip('/') + '_LoB.ms')
 
     print(colored('Combining spectral chunks.', 'red'))
 
-    f = open('concat_avg_commands.py', 'w')
+    f = open('concat_command.py', 'w')
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
-    f.write('\n')
+    os.system(casapath + ' --nologger --log2term --nologfile -c concat_command.py')
+    f.close()
+    fix_scans.fix_scans(mydata)
+    f = open('avg_command.py', 'w')
     f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
     f.close()
     print(colored('Averaging data.', 'red'))
-    os.system(casapath + ' --nologger --log2term --nologfile -c concat_avg_commands.py')
+    os.system(casapath + ' --nologger --log2term --nologfile -c avg_command.py')
     os.system('rm -r ' + mydata + '/master_ms_tmp.ms')
 
     mydata = mydata + '/master_ms.ms'
-
-    fix_scans.fix_scans(mydata)
 
 elif mydata.endswith('.ms') or mydata.endswith('.ms/'):
     print(colored('Starting with measurement set: ' + mydata + '.', 'red'))

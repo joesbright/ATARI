@@ -1,4 +1,4 @@
-from pyrap.tables import table
+from casacore.tables import table
 import numpy as np
 
 
