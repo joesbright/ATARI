@@ -62,7 +62,7 @@ args = parser.parse_args()
 mydata = args.msname
 casapath = args.casapath[0]
 chanbin = args.chanbin[0]
-flagants = args.flagants[0]
+flagants = args.flagants[0].split(',')
 
 if len(mydata) != 1:
     print(colored('Only one dataset should be given. Exiting.', 'red'))
@@ -85,23 +85,14 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
         with multiprocessing.Pool() as pool:
             results = pool.map(parallel_file_conversion, unique_fields)
 
-    #for field in unique_fields:
-    #    for folder in glob.glob(mydata + '/uvh5*' + field + '*/'):
-    #        uvd_C = UVData()
-    #        uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
-    #        uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
-    #        fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
-    #        final_concat.append(folder.rstrip('/') + '_LoC.ms')
-#
-    #        uvd_B = UVData()
-    #        uvd_B.read(glob.glob(folder + 'LoB*/*.uvh5'), fix_old_proj=False)
-    #        uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
-    #        fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
-    #        final_concat.append(folder.rstrip('/') + '_LoB.ms')
-
     final_concat = glob.glob(mydata + '/*.ms')
 
     print(colored('Combining spectral chunks.', 'red'))
+
+    with table(final_concat[0] + '/ANTENNA/') as t:
+        ant_names = t.getcol('NAME')
+    
+    flagants = [i for i in range(len(ant_names)) if ant_names[i] in flagants]
 
     f = open('concat_command.py', 'w')
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
