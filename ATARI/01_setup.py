@@ -107,7 +107,7 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
     if flagants != '':
         f.write('\n')
-        f.write('flagdata(vis=' + str(final_concat) + ', mode=\'manual\', antenna=\'!' + flagants + '\')')
+        f.write('flagdata(vis=\'' + mydata + '/master_ms_tmp.ms\', mode=\'manual\', antenna=\'!' + flagants + '\')')
     f.close()
     os.system(casapath + ' --nologger --log2term --nologfile -c concat_command.py')
     fix_scans.fix_scans(mydata + '/master_ms_tmp.ms')
