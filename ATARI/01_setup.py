@@ -94,7 +94,7 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     
     flagants = [i for i in range(len(ant_names)) if ant_names[i] in flagants]
     flagants = [str(x) for x in flagants]
-    flagants = ','.join(str(flagants))
+    flagants = ','.join(flagants)
 
     f = open('concat_command.py', 'w')
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
