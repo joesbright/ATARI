@@ -67,13 +67,13 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
             uvd_C = UVData()
             uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
             uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
-            fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
+            #fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
             final_concat.append(folder.rstrip('/') + '_LoC.ms')
 
             uvd_B = UVData()
             uvd_B.read(glob.glob(folder + 'LoB*/*.uvh5'), fix_old_proj=False)
             uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
-            fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
+            #fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
             final_concat.append(folder.rstrip('/') + '_LoB.ms')
 
     print(colored('Combining spectral chunks.', 'red'))
