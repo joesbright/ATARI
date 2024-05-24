@@ -21,7 +21,25 @@ import fix_scans
 import glob
 from pyuvdata import UVData
 from termcolor import colored
+import multiprocessing
 
+
+def parallel_file_conversion(field):
+
+    for folder in glob.glob(mydata + '/uvh5*' + field + '*/'):
+        uvd_C = UVData()
+        uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
+        uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
+        fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
+        final_concat.append(folder.rstrip('/') + '_LoC.ms')
+
+        uvd_B = UVData()
+        uvd_B.read(glob.glob(folder + 'LoB*/*.uvh5'), fix_old_proj=False)
+        uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
+        fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
+        final_concat.append(folder.rstrip('/') + '_LoB.ms')
+
+    return None
 
 
 def match_calibrators(source):
@@ -64,19 +82,23 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     unique_fields = list(set(fields))
 
     final_concat = []
-    for field in unique_fields:
-        for folder in glob.glob(mydata + '/uvh5*' + field + '*/'):
-            uvd_C = UVData()
-            uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
-            uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
-            fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
-            final_concat.append(folder.rstrip('/') + '_LoC.ms')
+    if __name__ == '__main__':
+        with multiprocessing.Pool() as pool:
+            results = pool.map(parallel_file_conversion, unique_fields)
 
-            uvd_B = UVData()
-            uvd_B.read(glob.glob(folder + 'LoB*/*.uvh5'), fix_old_proj=False)
-            uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
-            fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
-            final_concat.append(folder.rstrip('/') + '_LoB.ms')
+    #for field in unique_fields:
+    #    for folder in glob.glob(mydata + '/uvh5*' + field + '*/'):
+    #        uvd_C = UVData()
+    #        uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
+    #        uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
+    #        fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
+    #        final_concat.append(folder.rstrip('/') + '_LoC.ms')
+#
+    #        uvd_B = UVData()
+    #        uvd_B.read(glob.glob(folder + 'LoB*/*.uvh5'), fix_old_proj=False)
+    #        uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
+    #        fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
+    #        final_concat.append(folder.rstrip('/') + '_LoB.ms')
 
     print(colored('Combining spectral chunks.', 'red'))
 
