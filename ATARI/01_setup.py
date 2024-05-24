@@ -31,13 +31,13 @@ def parallel_file_conversion(field):
         uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
         uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
         fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
-        final_concat.append(folder.rstrip('/') + '_LoC.ms')
+        #final_concat.append(folder.rstrip('/') + '_LoC.ms')
 
         uvd_B = UVData()
         uvd_B.read(glob.glob(folder + 'LoB*/*.uvh5'), fix_old_proj=False)
         uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
         fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
-        final_concat.append(folder.rstrip('/') + '_LoB.ms')
+        #final_concat.append(folder.rstrip('/') + '_LoB.ms')
 
     return None
 
@@ -81,7 +81,6 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
         fields.append(file.split('/')[-1].split('_')[4])
     unique_fields = list(set(fields))
 
-    final_concat = []
     if __name__ == '__main__':
         with multiprocessing.Pool() as pool:
             results = pool.map(parallel_file_conversion, unique_fields)
@@ -100,11 +99,14 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     #        fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
     #        final_concat.append(folder.rstrip('/') + '_LoB.ms')
 
+    final_concat = glob.glob(mydata + '/*.ms')
+
     print(colored('Combining spectral chunks.', 'red'))
 
     f = open('concat_command.py', 'w')
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
     if flagants != '':
+        f.write('\n')
         f.write('flagdata(vis=' + str(final_concat) + ', mode=\'manual\', antenna=\'!' + flagants + '\')')
     f.close()
     os.system(casapath + ' --nologger --log2term --nologfile -c concat_command.py')
