@@ -38,11 +38,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument('msname', type=str, nargs=1, help='name of data set to calibrate, can be a single measurement set, or folder conatining uvh5 files (only measurement sets currently implemented).')
 parser.add_argument('--casapath', type=str, nargs=1, help='Path to CASA. Needs this if an alias is used.', default='casa')
 parser.add_argument('--chanbin', type=str, nargs=1, help='number of 0.5 MHz channels to average together', default='8')
+parser.add_argument('--flagants', type=str, nargs=1, help='comma separated list of antennas to flag', defaut='')
 args = parser.parse_args()
 
 mydata = args.msname
 casapath = args.casapath[0]
 chanbin = args.chanbin[0]
+flagants = args.flagants[0]
 
 if len(mydata) != 1:
     print(colored('Only one dataset should be given. Exiting.', 'red'))
@@ -80,6 +82,8 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
 
     f = open('concat_command.py', 'w')
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
+    if flagants != '':
+        f.write('flagdata(vis=' + str(final_concat) + ', mode=\'manual\', antenna=\'!' + flagants + '\'')
     f.close()
     os.system(casapath + ' --nologger --log2term --nologfile -c concat_command.py')
     fix_scans.fix_scans(mydata + '/master_ms_tmp.ms')
@@ -107,6 +111,11 @@ if len(set(scan_numbers)) == 1:
     print(colored('I suspect that the scan numbers have not been fixed. Fixing.', 'red'))
     fix_scans.fix_scans(myms)
 else:
+    if flagants != '':
+        f = open('flag_command.py', 'w')
+        f.write('flagdata(vis=' + str(final_concat) + ', mode=\'manual\', antenna=\'!' + flagants + '\'')
+        f.close()
+        os.system(casapath + ' --nologger --log2term --nologfile -c flag_command.py')
     print(colored('Scan numbers are incremented correctly, continuing.', 'red'))
 
 with table(myms + '/DATA_DESCRIPTION/') as t:
