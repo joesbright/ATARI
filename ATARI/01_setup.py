@@ -100,7 +100,7 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
     if flagants != '':
         f.write('\n')
-        f.write('flagdata(vis=\'' + mydata + '/master_ms_tmp.ms\', mode=\'manual\', antenna=\'!' + flagants + '\')')
+        f.write('flagdata(vis=\'' + mydata + '/master_ms_tmp.ms\', mode=\'manual\', antenna=\'' + flagants + '\')')
     f.close()
     os.system(casapath + ' --nologger --log2term --nologfile -c concat_command.py')
     fix_scans.fix_scans(mydata + '/master_ms_tmp.ms')
@@ -114,6 +114,18 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     mydata = mydata + '/master_ms.ms'
 
 elif mydata.endswith('.ms') or mydata.endswith('.ms/'):
+    with table(mydata) as t:
+        ant_names = t.getcol('NAME')
+    
+    flagants = [i for i in range(len(ant_names)) if ant_names[i] in flagants]
+    flagants = [str(x) for x in flagants]
+    flagants = ','.join(flagants)
+    
+    if flagants != '':
+        f = open('flag_command.py', 'w')
+        f.write('flagdata(vis=' + mydata + ', mode=\'manual\', antenna=\'' + flagants + '\')')
+        f.close()
+        os.system(casapath + ' --nologger --log2term --nologfile -c flag_command.py')    
     print(colored('Starting with measurement set: ' + mydata + '.', 'red'))
 
 else:
@@ -128,11 +140,6 @@ if len(set(scan_numbers)) == 1:
     print(colored('I suspect that the scan numbers have not been fixed. Fixing.', 'red'))
     fix_scans.fix_scans(myms)
 else:
-    if flagants != '':
-        f = open('flag_command.py', 'w')
-        f.write('flagdata(vis=' + str(final_concat) + ', mode=\'manual\', antenna=\'!' + flagants + '\')')
-        f.close()
-        os.system(casapath + ' --nologger --log2term --nologfile -c flag_command.py')
     print(colored('Scan numbers are incremented correctly, continuing.', 'red'))
 
 with table(myms + '/DATA_DESCRIPTION/') as t:
