@@ -38,7 +38,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('msname', type=str, nargs=1, help='name of data set to calibrate, can be a single measurement set, or folder conatining uvh5 files (only measurement sets currently implemented).')
 parser.add_argument('--casapath', type=str, nargs=1, help='Path to CASA. Needs this if an alias is used.', default='casa')
 parser.add_argument('--chanbin', type=str, nargs=1, help='number of 0.5 MHz channels to average together', default='8')
-parser.add_argument('--flagants', type=str, nargs=1, help='comma separated list of antennas to flag', defaut='')
+parser.add_argument('--flagants', type=str, nargs=1, help='comma separated list of antennas to flag', default='')
 args = parser.parse_args()
 
 mydata = args.msname
