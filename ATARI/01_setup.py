@@ -83,7 +83,7 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     f = open('concat_command.py', 'w')
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
     if flagants != '':
-        f.write('flagdata(vis=' + str(final_concat) + ', mode=\'manual\', antenna=\'!' + flagants + '\'')
+        f.write('flagdata(vis=' + str(final_concat) + ', mode=\'manual\', antenna=\'!' + flagants + '\')')
     f.close()
     os.system(casapath + ' --nologger --log2term --nologfile -c concat_command.py')
     fix_scans.fix_scans(mydata + '/master_ms_tmp.ms')
@@ -113,7 +113,7 @@ if len(set(scan_numbers)) == 1:
 else:
     if flagants != '':
         f = open('flag_command.py', 'w')
-        f.write('flagdata(vis=' + str(final_concat) + ', mode=\'manual\', antenna=\'!' + flagants + '\'')
+        f.write('flagdata(vis=' + str(final_concat) + ', mode=\'manual\', antenna=\'!' + flagants + '\')')
         f.close()
         os.system(casapath + ' --nologger --log2term --nologfile -c flag_command.py')
     print(colored('Scan numbers are incremented correctly, continuing.', 'red'))
