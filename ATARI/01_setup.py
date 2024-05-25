@@ -62,7 +62,7 @@ args = parser.parse_args()
 mydata = args.msname
 casapath = args.casapath[0]
 chanbin = args.chanbin[0]
-flagants = args.flagants[0].split(',')
+flagants = args.flagants.split(',')
 
 if len(mydata) != 1:
     print(colored('Only one dataset should be given. Exiting.', 'red'))
