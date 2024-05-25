@@ -28,16 +28,16 @@ def parallel_file_conversion(field):
 
     for folder in glob.glob(mydata + '/uvh5*' + field + '*/'):
         uvd_C = UVData()
-        uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
-        uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
-        fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
-        #final_concat.append(folder.rstrip('/') + '_LoC.ms')
+        if os.path.isdir(folder.rstrip('/') + '_LoC.ms') == False:
+            uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
+            uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
+            fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
 
-        uvd_B = UVData()
-        uvd_B.read(glob.glob(folder + 'LoB*/*.uvh5'), fix_old_proj=False)
-        uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
-        fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
-        #final_concat.append(folder.rstrip('/') + '_LoB.ms')
+        if os.path.isdir(folder.rstrip('/') + '_LoB.ms') == False:
+            uvd_B = UVData()
+            uvd_B.read(glob.glob(folder + 'LoB*/*.uvh5'), fix_old_proj=False)
+            uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
+            fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
 
     return None
 
@@ -98,20 +98,20 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
 
     f = open('concat_command.py', 'w')
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
-    if flagants != '':
+    if flagants != ['']:
         f.write('\n')
         f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms_tmp2.ms\', antenna=\'!' + flagants + '\')')
     f.close()
     os.system(casapath + ' --nologger --log2term --nologfile -c concat_command.py')
 
-    if flagants != '':
+    if flagants != ['']:
         os.system('aoflagger ' + mydata + '/master_ms_tmp2.ms')
     else:
         os.system('aoflagger ' + mydata + '/master_ms_tmp.ms')
 
     fix_scans.fix_scans(mydata + '/master_ms_tmp.ms')
     f = open('avg_command.py', 'w')
-    if flagants != '':
+    if flagants != ['']:
         f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp2.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
     else:
         f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
