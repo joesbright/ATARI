@@ -81,6 +81,8 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
         fields.append(file.split('/')[-1].split('_')[4])
     unique_fields = list(set(fields))
 
+    print(fields)
+
     if __name__ == '__main__':
         with multiprocessing.Pool() as pool:
             results = pool.map(parallel_file_conversion, unique_fields)
