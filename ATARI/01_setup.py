@@ -27,8 +27,8 @@ import multiprocessing
 def parallel_file_conversion(field):
 
     for folder in glob.glob(mydata + '/uvh5*' + field + '*/'):
-        uvd_C = UVData()
         if os.path.isdir(folder.rstrip('/') + '_LoC.ms') == False:
+            uvd_C = UVData()
             uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
             uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
             fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
