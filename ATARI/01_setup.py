@@ -100,16 +100,27 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
     if flagants != '':
         f.write('\n')
-        f.write('flagdata(vis=\'' + mydata + '/master_ms_tmp.ms\', mode=\'manual\', antenna=\'' + flagants + '\')')
+        f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms_tmp2.ms\', antenna=\'!' + flagants + '\')')
     f.close()
     os.system(casapath + ' --nologger --log2term --nologfile -c concat_command.py')
+
+    if flagants != '':
+        os.system('aoflagger ' + mydata + '/master_ms_tmp2.ms')
+    else:
+        os.system('aoflagger ' + mydata + '/master_ms_tmp.ms')
+
     fix_scans.fix_scans(mydata + '/master_ms_tmp.ms')
     f = open('avg_command.py', 'w')
-    f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
+    if flagants != '':
+        f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp2.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
+    else:
+        f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
     f.close()
+
     print(colored('Averaging data.', 'red'))
     os.system(casapath + ' --nologger --log2term --nologfile -c avg_command.py')
     os.system('rm -r ' + mydata + '/master_ms_tmp.ms')
+    os.system('rm -r ' + mydata + '/master_ms_tmp2.ms')
 
     mydata = mydata + '/master_ms.ms'
 
