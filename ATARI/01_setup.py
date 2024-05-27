@@ -26,7 +26,7 @@ import multiprocessing
 
 def parallel_file_conversion(field):
 
-    for folder in glob.glob(mydata + '/uvh5*' + field + '*/'):
+    for folder in glob.glob(mydata + '/uvh5*' + field + '*0001/'):
         if os.path.isdir(folder.rstrip('/') + '_LoC.ms') == False:
             uvd_C = UVData()
             uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
@@ -81,8 +81,6 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
         fields.append(file.split('/')[-1].split('_')[4])
     unique_fields = list(set(fields))
 
-    print(unique_fields)
-
     if __name__ == '__main__':
         with multiprocessing.Pool() as pool:
             results = pool.map(parallel_file_conversion, unique_fields)
@@ -93,10 +91,11 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
 
     with table(final_concat[0] + '/ANTENNA/') as t:
         ant_names = t.getcol('NAME')
-    
-    flagants = [i for i in range(len(ant_names)) if ant_names[i] in flagants]
-    flagants = [str(x) for x in flagants]
-    flagants = ','.join(flagants)
+
+    if flagants != ['']:
+        flagants = [i for i in range(len(ant_names)) if ant_names[i] in flagants]
+        flagants = [str(x) for x in flagants]
+        flagants = ','.join(flagants)
 
     f = open('concat_command.py', 'w')
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
