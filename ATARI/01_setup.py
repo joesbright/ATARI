@@ -101,7 +101,7 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
     if flagants != ['']:
         f.write('\n')
-        f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms_tmp2.ms\', antenna=\'!' + flagants + '\')')
+        f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms_tmp2.ms\', antenna=\'!' + flagants + '\', datacolumn=\'DATA\')')
     f.close()
     os.system(casapath + ' --nologger --log2term --nologfile -c concat_command.py')
 
