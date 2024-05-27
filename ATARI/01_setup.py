@@ -110,7 +110,11 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     else:
         os.system('aoflagger ' + mydata + '/master_ms_tmp.ms')
 
-    fix_scans.fix_scans(mydata + '/master_ms_tmp.ms')
+    if flagants != ['']:
+        fix_scans.fix_scans(mydata + '/master_ms_tmp2.ms')
+    else:
+        fix_scans.fix_scans(mydata + '/master_ms_tmp.ms')
+
     f = open('avg_command.py', 'w')
     if flagants != ['']:
         f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp2.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
