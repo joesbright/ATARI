@@ -52,6 +52,13 @@ def match_calibrators(source):
 cwd = os.getcwd()
 logging.info('Working from ' + str(cwd))
 
+# clean up previous run
+os.system('rm 1GC_.py')
+os.system('rm image_.sh')
+os.system('rm avg_command.py')
+os.system('rm concat_command.py')
+os.system('rm concat_avg_commands.py')
+
 parser = argparse.ArgumentParser()
 parser.add_argument('msname', type=str, nargs=1, help='name of data set to calibrate, can be a single measurement set, or folder conatining uvh5 files (only measurement sets currently implemented).')
 parser.add_argument('--casapath', type=str, nargs=1, help='Path to CASA. Needs this if an alias is used.', default='casa')
@@ -126,11 +133,14 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     os.system(casapath + ' --nologger --log2term --nologfile -c avg_command.py')
     os.system('rm -r ' + mydata + '/master_ms_tmp.ms')
     os.system('rm -r ' + mydata + '/master_ms_tmp2.ms')
+    os.system('rm avg_command.py')
+    os.system('rm concat_command.py')
+    os.system('rm concat_avg_commands.py')
 
     mydata = mydata + '/master_ms.ms'
 
 elif mydata.endswith('.ms') or mydata.endswith('.ms/'):
-    with table(mydata) as t:
+    with table(mydata + '/ANTENNA/') as t:
         ant_names = t.getcol('NAME')
     
     flagants = [i for i in range(len(ant_names)) if ant_names[i] in flagants]
@@ -141,7 +151,8 @@ elif mydata.endswith('.ms') or mydata.endswith('.ms/'):
         f = open('flag_command.py', 'w')
         f.write('flagdata(vis=' + mydata + ', mode=\'manual\', antenna=\'' + flagants + '\')')
         f.close()
-        os.system(casapath + ' --nologger --log2term --nologfile -c flag_command.py')    
+        os.system(casapath + ' --nologger --log2term --nologfile -c flag_command.py')
+        os.system('rm flag_command.py')
     print(colored('Starting with measurement set: ' + mydata + '.', 'red'))
 
 else:
@@ -231,15 +242,17 @@ field_matching = dict(zip(np.asarray(ordered_target_fields), np.asarray(ordered_
 vislist = []
 for key in fields:
     if fields[key][1] == 'TARGET':
+        target_field_id = key
         tm = table(mydata)
         t = table(mydata + '/SOURCE')
         for i, item in enumerate(t.getcol('NAME')):
             if item == fields[key][0]:
+                target_name = item
                 x = t.getcol('SPECTRAL_WINDOW_ID')[i]
                 y = [key, field_matching[fields[key][0]], fcal_field[0]]
                 t1 = casacore.tables.taql('SELECT FROM $tm WHERE (DATA_DESC_ID IN [SELECT SPECTRAL_WINDOW_ID FROM ::DATA_DESCRIPTION WHERE SPECTRAL_WINDOW_ID == $x])')
                 t2 = casacore.tables.taql('SELECT FROM $t1 WHERE FIELD_ID IN $y')
-                newdir  = '../data/' + fields[key][0] + '_' + 'spw' + str(x) + '/'
+                newdir  = '/'.join(mydata.split('/')[:-1]) + '/' + fields[key][0] + '_' + 'spw' + str(x) + '/'
                 outfile = newdir + fields[key][0] + '_' + 'spw' + str(x) + '.ms'
                 vislist.append(outfile)
                 os.mkdir(newdir)
@@ -277,13 +290,15 @@ for key in fields:
         t.close()
         tm.close()
 
-os.mkdir('../data/DEEP_IMAGE/')
+deep_dir = '/'.join(mydata.split('/')[:-1]) + '/' + '/DEEP_IMAGE/'
+os.mkdir(deep_dir)
 
 FGC.deep_image(
     vislist,
-    item,
+    target_field_id,
     'image_.sh',
     imsize,
     cell,
-    '../data/DEEP_IMAGE/')
+    deep_dir,
+    target_name)
 

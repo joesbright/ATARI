@@ -71,8 +71,9 @@ def deep_image(vislist,
                script_name,
                imsize,
                cell,
-               outdir):
+               outdir,
+               target_name):
     
-    write_wsclean_scripts.write_deep_image(vislist, field, script_name, imsize, cell, outdir)
+    write_wsclean_scripts.write_deep_image(vislist, field, script_name, imsize, cell, outdir, target_name)
     
     return None

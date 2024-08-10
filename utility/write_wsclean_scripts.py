@@ -43,7 +43,8 @@ def write_deep_image(vislist,
                script_name,
                size,
                scale,
-               outdir):
+               outdir,
+               target_name):
     
     f = open(script_name, 'a')
     args = 'wsclean '
@@ -52,8 +53,15 @@ def write_deep_image(vislist,
     args += '-scale ' + str(scale) + 'asec '
     args += '-field ' + str(field) + ' '
     args += '-reorder '
-    args += '-name ' + outdir + str(field) + '_nomask_deep '
+    args += '-name ' + outdir + str(target_name) + '_automask '
     args += '-data-column CORRECTED_DATA '
+    args += '-join-channels '
+    args += '-channels-out 4 '
+    args += '-fit-spectral-pol 2 '
+    args += '-weight briggs 0.5 '
+    args += '-mgain 0.7 '
+    args += '-local-rms '
+    args += '-auto-threshold 5 '
     args += ' '.join(vislist)
 
     f.write(args + '\n')    
