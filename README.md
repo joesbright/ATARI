@@ -1,6 +1,8 @@
 # Allen Telescope Array Radio Imaging (ATARI)
 Calibration pipeline for reducing and imaging correlator data taken with the Allen Telescope Array (ATA)
 
+![image](https://github.com/user-attachments/assets/739ec7e0-c5f0-4b7f-bb47-1c7aceb0775a)
+
 Requirements:
 Python >= 3.8\
 casa\
