@@ -1,3 +1,6 @@
+import numpy as np
+
+
 def write_mstransform(vis, 
                       outputvis, 
                       antenna, 
@@ -177,3 +180,33 @@ def write_flagdata(vis, script_name):
 
     f.write('flagdata(' + args + ')\n')
     f.close()
+
+def write_u0_flag(vislist, script_name):
+    
+    for myms in vislist:
+
+        f = open(script_name, 'a')
+
+        for myfield in range(3):
+            f.write('tb.open(\'' + str(myms)+ '\')\n')
+            f.write('tmp_table = tb.query(\'FIELD_ID==' + str(myfield) + '\')\n')
+            f.write('visdata = tmp_table.getcol(\'CORRECTED_DATA\')\n')
+            f.write('tb.close()\n')
+            f.write('tmp_table.close()\n')
+            f.write('xx_amp = abs(visdata[0,:,:])\n')
+            f.write('xx_99 = np.percentile(xx_amp, 99)\n')
+            f.write('yy_amp = abs(visdata[3,:,:])\n')
+            f.write('yy_99 = np.percentile(yy_amp, 99)\n')
+            f.write('myclipmax = np.min([xx_99, yy_99])\n')
+
+            args = 'vis=\''
+            args += myms + '\','
+            args += 'mode=\'clip\','
+            args += 'clipoutside=True,'
+            args += 'clipminmax=[0,myclipmax],'
+            args += 'datacolumn=\'CORRECTED\','
+            args += 'field=\'' + str(myfield) + '\''
+
+            f.write('flagdata(' + args + ')\n')
+        f.close()
+        

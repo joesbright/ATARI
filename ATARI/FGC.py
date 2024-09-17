@@ -11,6 +11,10 @@ def first_generation_calibration(myms,
                                  script_name, 
                                  outdir):
     
+    f = open(script_name, 'a')
+    f.write('import numpy as np\n\n')
+    f.close()
+    
     G0_table = str(flux_cal) + '.G0'
     K0_table = str(flux_cal) + '.K0'
     B0_table = str(flux_cal) + '.B0'
@@ -76,4 +80,11 @@ def deep_image(vislist,
     
     write_wsclean_scripts.write_deep_image(vislist, field, script_name, imsize, cell, outdir, target_name)
     
+    return None
+
+def flag_u0(vislist,
+            script_name):
+
+    write_casa_scripts.write_u0_flag(vislist, script_name)
+
     return None

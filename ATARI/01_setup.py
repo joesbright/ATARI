@@ -302,3 +302,6 @@ FGC.deep_image(
     deep_dir,
     target_name)
 
+FGC.flag_u0(
+    vislist,
+    '1GC_.py')
