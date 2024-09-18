@@ -14,7 +14,6 @@ def write_mstransform(vis,
 
     f.write('mstransform(' + args + ')')
     f.close()
-    return
 
 
 def write_setjy(vis, 
@@ -34,7 +33,6 @@ def write_setjy(vis,
 
     f.write('setjy(' + args + ')\n')
     f.close()
-    return
 
 
 def write_gaincal(vis, 
@@ -79,7 +77,7 @@ def write_gaincal(vis,
 
     f.write('gaincal(' + args + ')\n')
     f.close()
-    return
+
 
 def write_bandpass(vis, 
                    caltable, 
@@ -116,7 +114,7 @@ def write_bandpass(vis,
 
     f.write('bandpass(' + args + ')\n')
     f.close()
-    return
+
 
 def write_fluxscale(vis, caltable, fluxtable, reference, transfer, script_name, outdir):
 
@@ -136,7 +134,6 @@ def write_fluxscale(vis, caltable, fluxtable, reference, transfer, script_name, 
     f.write('fluxscale(' + args + ')\n')
     f.close()
 
-    return
 
 def write_applycal(vis, field, gaintable, gainfield, interp, calwt, script_name, outdir):
 
@@ -162,10 +159,10 @@ def write_applycal(vis, field, gaintable, gainfield, interp, calwt, script_name,
     f.write('applycal(' + args + ')\n')
     f.close()
 
+
 def write_flagdata(vis, script_name):
 
     f = open(script_name, 'a')
-    f.write('#####' + str(vis) + '#####\n')
 
     args = 'vis=\''
     args += vis + '\','
@@ -180,6 +177,7 @@ def write_flagdata(vis, script_name):
 
     f.write('flagdata(' + args + ')\n')
     f.close()
+
 
 def write_u0_flag(vislist, script_name):
     

@@ -17,7 +17,7 @@ def write_wsclean(vis,
     for i, field in enumerate([target, flux_cal, phase_cal]):
 
         args = 'wsclean '
-        args += '-niter 5000 '
+        args += '-niter 50000 '
         args += '-size ' + str(size) + ' ' + str(size) + ' '
         args += '-scale ' + str(scale) + 'asec '
         args += '-field ' + str(field) + ' '
@@ -30,7 +30,10 @@ def write_wsclean(vis,
         args += '-weight briggs 0.5 '
         args += '-mgain 0.7 '
         args += '-local-rms '
-        args += '-auto-threshold 5 '
+        args += '-auto-mask 5 '
+        args += '-auto-threshold 1 '
+        args += '-multiscale '
+        args += '-multiscale-scales 0,3,9 '
         args += vis
 
         f.write(args + '\n')
@@ -48,7 +51,7 @@ def write_deep_image(vislist,
     
     f = open(script_name, 'a')
     args = 'wsclean '
-    args += '-niter 1000 '
+    args += '-niter 50000 '
     args += '-size ' + str(size) + ' ' + str(size) + ' '
     args += '-scale ' + str(scale) + 'asec '
     args += '-field ' + str(field) + ' '
@@ -62,6 +65,10 @@ def write_deep_image(vislist,
     args += '-mgain 0.7 '
     args += '-local-rms '
     args += '-auto-threshold 5 '
+    args += '-auto-mask 5 '
+    args += '-auto-threshold 1 '
+    args += '-multiscale '
+    args += '-multiscale-scales 0,3,9 '
     args += ' '.join(vislist)
 
     f.write(args + '\n')    

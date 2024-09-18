@@ -5,7 +5,6 @@ import general_functions as gf
 import write_casa_scripts
 import argparse
 import astropy
-#from pyrap.tables import table
 import pyuvdata
 import logging
 import numpy as np
@@ -233,11 +232,7 @@ with table(mydata + '/STATE', readonly=False) as t:
 
 field_matching = dict(zip(np.asarray(ordered_target_fields), np.asarray(ordered_pcal_fields)))
 
-#os.system('rm 1GC_.py')
-#os.system('rm image_.sh')
-#os.system('rm *.fits')
-#os.system('rm -r ../data/*_spw*')
-#os.system('rm -r ../data/DEEP_IMAGE')
+FGC.write_dependencies('1GC_.py')
 
 vislist = []
 for key in fields:
@@ -266,7 +261,9 @@ for key in fields:
 
                 cell = ((sp.constants.c / (spws[x] * 1.e9)) / 300.) * (180. / sp.constants.pi) * 60. * 60. / 8.
                 imsize = ((sp.constants.c / (spws[x] * 1.e9)) / 6.1) * (180. / sp.constants.pi) * 60. * 60. / cell
-                imsize = int(2. ** (math.ceil(np.log2(imsize)) + 1))
+                imsize = int(2. ** (math.ceil(np.log2(imsize)) + 2))
+
+                FGC.write_comments('1GC_.py', item, x)
 
                 FGC.first_generation_calibration(outfile,
                                                  item,
