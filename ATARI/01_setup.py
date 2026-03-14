@@ -104,7 +104,7 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     timeIDs = []
     for file in myuvfiles_C:
         fields.append(file.split('/')[-1].split('_')[4])
-        timeIDs.append(file.split('/')[-1].split('_')[1]) + '_' + timeIDs.append(file.split('/')[-1].split('_')[2]) + '_' + timeIDs.append(file.split('/')[-1].split('_')[3])
+        timeIDs.append(file.split('/')[-1].split('_')[1] + '_' + file.split('/')[-1].split('_')[2] + '_' + file.split('/')[-1].split('_')[3])
     unique_fields = list(set(fields))
 
     if __name__ == '__main__':
