@@ -26,17 +26,32 @@ import multiprocessing
 def parallel_file_conversion(field):
 
     for folder in glob.glob(mydata + '/uvh5*' + field + '*0001/'):
-        if os.path.isdir(folder.rstrip('/') + '_LoC.ms') == False:
-            uvd_C = UVData()
-            uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
-            uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
-            fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
+
+        if os.path.isdir(folder.rstrip('/') + '_LoA.ms') == False:
+            uvd_A = UVData()
+            uvd_A.read(glob.glob(folder + 'LoA*/*.uvh5'), fix_old_proj=False)
+            uvd_A.write_ms(folder.rstrip('/') + '_LoA.ms')
+            fix_scans.fix_spw(folder.rstrip('/') + '_LoA.ms')
 
         if os.path.isdir(folder.rstrip('/') + '_LoB.ms') == False:
             uvd_B = UVData()
             uvd_B.read(glob.glob(folder + 'LoB*/*.uvh5'), fix_old_proj=False)
             uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
             fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
+
+        if os.path.isdir(folder.rstrip('/') + '_LoC.ms') == False:
+            uvd_C = UVData()
+            uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
+            uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
+            fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
+
+        if os.path.isdir(folder.rstrip('/') + '_LoD.ms') == False:
+            uvd_D = UVData()
+            uvd_D.read(glob.glob(folder + 'LoD*/*.uvh5'), fix_old_proj=False)
+            uvd_D.write_ms(folder.rstrip('/') + '_LoD.ms')
+            fix_scans.fix_spw(folder.rstrip('/') + '_LoD.ms')
+
+
 
     return None
 
@@ -79,8 +94,11 @@ mydata = mydata[0]
 if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.endswith('.ms/') == False:
     print(colored('Starting with folder: ' + mydata + '.', 'red'))
     # CONVERT TO MEASUREMENT SET FIRST
-    myuvfiles_C = glob.glob(mydata + '/uvh5*/LoC*/' + '*.uvh5')
+    myuvfiles_A = glob.glob(mydata + '/uvh5*/LoA*/' + '*.uvh5')
     myuvfiles_B = glob.glob(mydata + '/uvh5*/LoB*/' + '*.uvh5')
+    myuvfiles_C = glob.glob(mydata + '/uvh5*/LoC*/' + '*.uvh5')
+    myuvfiles_D = glob.glob(mydata + '/uvh5*/LoD*/' + '*.uvh5')
+    
 
     fields = []
     for file in myuvfiles_C:
