@@ -23,9 +23,9 @@ from termcolor import colored
 import multiprocessing
 
 
-def parallel_file_conversion(field):
+def parallel_file_conversion(timeID):
 
-    for folder in glob.glob(mydata + '/uvh5*' + field + '*0001/'):
+    for folder in glob.glob(mydata + '/uvh5*' + timeID + '*0001/'):
 
         if os.path.isdir(folder.rstrip('/') + '_LoA.ms') == False:
             uvd_A = UVData()
@@ -101,13 +101,15 @@ if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.
     
 
     fields = []
+    timeIDs = []
     for file in myuvfiles_C:
         fields.append(file.split('/')[-1].split('_')[4])
+        timeIDs.append(file.split('/')[-1].split('_')[1]) + '_' + timeIDs.append(file.split('/')[-1].split('_')[2]) + '_' + timeIDs.append(file.split('/')[-1].split('_')[3])
     unique_fields = list(set(fields))
 
     if __name__ == '__main__':
         with multiprocessing.Pool() as pool:
-            results = pool.map(parallel_file_conversion, unique_fields)
+            results = pool.map(parallel_file_conversion, timeIDs)
 
     final_concat = glob.glob(mydata + '/*.ms')
 
