@@ -1,0 +1,32 @@
+[project]
+name = "ata-atari"
+version = "0.1.0"
+description = "Calibration and imaging pipeline for Allen Telescope Array correlator data"
+readme = "README.md"
+authors = [{ name = "Joe Bright" }]
+requires-python = ">=3.10"
+dependencies = [
+    "astropy>=6.1.7",
+    "numpy>=2.2.6",
+    "python-casacore>=3.8.1",
+    "pyuvdata>=2.2",
+    "scipy>=1.9",
+    "termcolor>=3.3.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+atari-setup = "atari.pipeline:main"
+
+# The distribution is called ata-atari but the code imports as atari, so
+# hatchling needs to be told where the package is.
+[tool.hatch.build.targets.wheel]
+packages = ["src/atari"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

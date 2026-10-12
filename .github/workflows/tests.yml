@@ -1,0 +1,26 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    # python-casacore only publishes ready-made builds for Linux x86_64, so the
+    # full suite (including the pipeline regression test) runs here.
+    runs-on: ubuntu-latest
+    strategy:
+      # Report every Python version even if one fails.
+      fail-fast: false
+      matrix:
+        # The oldest supported Python and a recent one.
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install dependencies from uv.lock
+        run: uv sync --locked --python ${{ matrix.python-version }}
+      - name: Run tests
+        # -rs lists skipped tests and why, so a silently skipped regression
+        # test is noticed.
+        run: uv run pytest -rs
