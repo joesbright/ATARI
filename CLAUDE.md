@@ -24,7 +24,7 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (64 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 64 run:
+`uv run pytest -rs` (71 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 71 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
@@ -75,6 +75,7 @@ Known bugs and open questions are GitHub issues (`gh issue list`).
 - Recording nodes can drop, so an LO can lack tunings (`LoX.C0352` … `LoX.C1504`), for the whole observation or from partway through. Each LO is 672 MHz recorded independently as 7 tunings of 96 MHz (192 × 0.5 MHz channels), always named `uvh5_files.TUNINGS` (C0352–C1504, the first channel number). `uvh5_files.read_lo` expects all 7 for every LO on its own and fills each missing one with zeroed, fully flagged data, at a recorded tuning's frequencies shifted by the difference in channel numbers. Each recorded tuning's start frequency is checked against its name, and an unknown tuning name is an error, so nothing is filled in the wrong place. An LO with no tunings in a scan was not recorded and is not filled. Without the filling:
   - CASA 6.6 `concat` aborts on exit (`ArrayShapeError`) when LOs have different channel counts, leaving stale row counts in `table.dat` that only the `table.lock` files correct. The input columns are variable-shape (`TiledShapeStMan`), so this looks like a CASA bug; the filling sidesteps it rather than explaining it.
   - a scan whose LO lost a tuning gets its own spectral window in `concat`.
+  Filled channels are flagged, but CASA `fluxscale` reports each spw's flux density at the centre of *all* the G1 solve's selected channels, flagged or not (checked on CASA 6.6: LoD reported at 8999.75 MHz, the unflagged centre is 9057.35 MHz). So `pipeline.flagged_everywhere` finds channels flagged in every row of each split, and `write_casa_scripts.channel_selection` leaves them out of the two G1 `gaincal` calls (`spw='3:0~3;12~27'`); other gaincals and spws are unchanged.
   **Never delete `table.lock` files from an MS CASA produced**; use `tests/make_test_ms.py` to make a lock-free copy.
 - `os.system` failures are ignored, so a missing CASA or aoflagger does not stop the run.
 - TaQL queries refer to Python variables as `$name` (e.g. `$y`, `$tm`), so linters report those variables as unused. Don't remove them.

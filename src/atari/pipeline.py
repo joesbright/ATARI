@@ -13,7 +13,7 @@ from atari import fix_scans
 from atari.calibrators import classify_field
 from atari.cli import parse_args, resolve_refant
 from atari.uvh5_files import find_converted_ms, find_time_ids, read_lo
-from atari.write_casa_scripts import write_flag_antennas
+from atari.write_casa_scripts import channel_selection, write_flag_antennas
 import glob
 from functools import partial
 from termcolor import colored
@@ -24,6 +24,18 @@ def antenna_ids(ant_names, flagants):
     # The row numbers of the named antennas, as CASA's antenna selection
     # expects, e.g. '0,5'. Empty if none of them are in the MS.
     return ','.join(str(i) for i in range(len(ant_names)) if ant_names[i] in flagants)
+
+
+def flagged_everywhere(myms):
+    # For each channel, whether it is flagged in every row and polarisation
+    # of myms (which holds a single spw). Read in chunks of rows, since FLAG
+    # for a full observation is large.
+    with table(myms) as t:
+        flagged = None
+        for start in range(0, t.nrows(), 100000):
+            chunk = t.getcol('FLAG', startrow=start, nrow=100000).all(axis=(0, 2))
+            flagged = chunk if flagged is None else flagged & chunk
+    return flagged
 
 
 def parallel_file_conversion(timeID, mydata):
@@ -263,7 +275,8 @@ def main(argv=None):
                                                      fields[field_matching[item]][0],
                                                      refant,
                                                      '1GC_.py',
-                                                     newdir + 'CALIBRATION_TABLES/')
+                                                     newdir + 'CALIBRATION_TABLES/',
+                                                     g1_spw=channel_selection(x, flagged_everywhere(outfile)))
 
                     FGC.image_all_fields(outfile,
                                          key,

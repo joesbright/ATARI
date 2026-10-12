@@ -22,7 +22,11 @@ def first_generation_calibration(myms,
                                  phase_cal,
                                  refant,
                                  script_name, 
-                                 outdir):
+                                 outdir,
+                                 g1_spw=''):
+    # g1_spw (from write_casa_scripts.channel_selection) leaves channels
+    # with no data out of the G1 solves: fluxscale reports each spw's flux
+    # density at the centre of G1's selected channels, flagged or not.
     
     G0_table = str(flux_cal) + '.G0'
     K0_table = str(flux_cal) + '.K0'
@@ -36,8 +40,8 @@ def first_generation_calibration(myms,
     write_casa_scripts.write_gaincal(myms, G0_table, flux_cal, refant, 'p', 'int', script_name, outdir)
     write_casa_scripts.write_gaincal(myms, K0_table, flux_cal, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table], gaintype='K')
     write_casa_scripts.write_bandpass(myms, B0_table, flux_cal, refant, 'B', 'inf', script_name, outdir, gaintable=[G0_table,K0_table])
-    write_casa_scripts.write_gaincal(myms, G1_table, flux_cal, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table,B0_table,K0_table])
-    write_casa_scripts.write_gaincal(myms, G1_table, phase_cal, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table,B0_table,K0_table], append='True')
+    write_casa_scripts.write_gaincal(myms, G1_table, flux_cal, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table,B0_table,K0_table], spw=g1_spw)
+    write_casa_scripts.write_gaincal(myms, G1_table, phase_cal, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table,B0_table,K0_table], append='True', spw=g1_spw)
     write_casa_scripts.write_fluxscale(myms, G1_table, flux_table, flux_cal, [str(phase_cal)], script_name, outdir)
     write_casa_scripts.write_applycal(myms, flux_cal, [flux_table,K0_table,B0_table,G0_table], [str(flux_cal), '',''], ['nearest','',''], 'False', script_name, outdir)
     write_casa_scripts.write_applycal(myms, phase_cal, [flux_table,K0_table,B0_table,G0_table], [str(phase_cal), '',''], ['nearest','',''], 'False', script_name, outdir)
