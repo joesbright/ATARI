@@ -1,5 +1,7 @@
 import glob
 
+from atari.calibrators import skip_field
+
 
 def find_time_ids(mydata):
     # Each scan has several LoC tuning folders, so the time ID must be
@@ -9,6 +11,10 @@ def find_time_ids(mydata):
     timeIDs = set()
     for file in glob.glob(mydata + '/uvh5*/LoC*/' + '*.uvh5'):
         parts = file.split('/')[-1].split('_')
+        # The field name can contain underscores (Stay_put), so it is
+        # everything between the time ID and the trailing _0001.
+        if skip_field('_'.join(parts[4:-1])):
+            continue
         timeIDs.add(parts[1] + '_' + parts[2] + '_' + parts[3])
 
     return sorted(timeIDs)
