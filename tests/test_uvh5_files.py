@@ -68,10 +68,11 @@ TUNINGS = ['C0352', 'C0544', 'C0736', 'C0928', 'C1120', 'C1312', 'C1504']
 SCAN = 'uvh5_61317_13928_5581420_AT2026yeh_0001'
 
 
-def test_observation_tunings_are_found_across_all_los():
-    # LoD has only 5 tunings in the test data, but the other LOs have all 7
-    # and every LO uses the same tuning names.
-    assert uvh5_files.observation_tunings(str(UVH5)) == TUNINGS
+def test_every_lo_has_the_same_seven_tunings():
+    # Each LO is 672 MHz recorded as 7 tunings of 96 MHz (192 channels of
+    # 0.5 MHz), named by their first channel, so the names step by 192.
+    assert uvh5_files.TUNINGS == TUNINGS
+    assert [int(t[1:]) for t in TUNINGS] == list(range(352, 1505, 192))
 
 
 def tuning_flags(uvd, tunings, channels_per_tuning=32):
@@ -84,8 +85,8 @@ def tuning_flags(uvd, tunings, channels_per_tuning=32):
 def test_tunings_missing_from_the_whole_observation_are_filled_with_flags():
     # Issue #10: LoD lacks C0544 and C0736 in every scan, so it had fewer
     # channels than the other LOs and CASA concat crashed.
-    lod = uvh5_files.read_lo(str(UVH5 / SCAN) + '/', 'LoD', TUNINGS)
-    loa = uvh5_files.read_lo(str(UVH5 / SCAN) + '/', 'LoA', TUNINGS)
+    lod = uvh5_files.read_lo(str(UVH5 / SCAN) + '/', 'LoD')
+    loa = uvh5_files.read_lo(str(UVH5 / SCAN) + '/', 'LoA')
 
     assert lod.Nfreqs == loa.Nfreqs == 7 * 32
     # The filled tunings sit where LoD's C0544 and C0736 would be: the same
@@ -103,10 +104,9 @@ def test_tuning_dropped_partway_through_is_filled_with_flags(tmp_path):
     data = tmp_path / 'uvh5'
     shutil.copytree(UVH5, data)
     shutil.rmtree(data / SCAN / 'LoA.C0736')
-    tunings = uvh5_files.observation_tunings(str(data))
 
-    dropped = uvh5_files.read_lo(str(data / SCAN) + '/', 'LoA', tunings)
-    complete = uvh5_files.read_lo(str(UVH5 / SCAN) + '/', 'LoA', TUNINGS)
+    dropped = uvh5_files.read_lo(str(data / SCAN) + '/', 'LoA')
+    complete = uvh5_files.read_lo(str(UVH5 / SCAN) + '/', 'LoA')
 
     assert np.allclose(dropped.freq_array, complete.freq_array)
     assert np.allclose(dropped.channel_width, complete.channel_width)
@@ -122,7 +122,7 @@ def test_lo_that_was_not_recorded_is_skipped(tmp_path):
     for tuning in (data / SCAN).glob('LoB.*'):
         shutil.rmtree(tuning)
 
-    assert uvh5_files.read_lo(str(data / SCAN) + '/', 'LoB', TUNINGS) is None
+    assert uvh5_files.read_lo(str(data / SCAN) + '/', 'LoB') is None
 
 
 @pytest.mark.parametrize('dropped', [
@@ -145,8 +145,8 @@ def test_missing_tunings_are_filled_at_their_true_frequencies(tmp_path, dropped)
     for tuning in dropped:
         shutil.rmtree(scan / ('LoA.' + tuning))
 
-    filled = uvh5_files.read_lo(str(scan) + '/', 'LoA', TUNINGS)
-    complete = uvh5_files.read_lo(str(UVH5 / SCAN) + '/', 'LoA', TUNINGS)
+    filled = uvh5_files.read_lo(str(scan) + '/', 'LoA')
+    complete = uvh5_files.read_lo(str(UVH5 / SCAN) + '/', 'LoA')
 
     assert np.array_equal(filled.freq_array, complete.freq_array)
     assert np.array_equal(filled.channel_width, complete.channel_width)
@@ -160,28 +160,41 @@ def test_missing_tunings_are_filled_at_their_true_frequencies(tmp_path, dropped)
 def test_tuning_whose_name_does_not_match_its_frequencies_is_an_error(tmp_path):
     # Missing tunings are placed using the tuning names, so check the names
     # against the recorded frequencies rather than fill in the wrong place.
+    # Swapping two tunings' names keeps every name valid.
     scan = tmp_path / SCAN
     shutil.copytree(UVH5 / SCAN, scan)
     shutil.rmtree(scan / 'LoA.C0736')
-    (scan / 'LoA.C0544').rename(scan / 'LoA.C0560')
+    (scan / 'LoA.C0544').rename(scan / 'LoA.swap')
+    (scan / 'LoA.C0928').rename(scan / 'LoA.C0544')
+    (scan / 'LoA.swap').rename(scan / 'LoA.C0928')
 
-    with pytest.raises(ValueError, match='LoA.C0560'):
-        uvh5_files.read_lo(str(scan) + '/', 'LoA', TUNINGS + ['C0560'])
+    with pytest.raises(ValueError, match='LoA.C0544'):
+        uvh5_files.read_lo(str(scan) + '/', 'LoA')
 
 
-def test_tuning_missing_from_every_lo_is_left_out_consistently(tmp_path):
-    # If no LO recorded a tuning in any scan, nothing says it should exist,
-    # so it is not filled. Every LO still ends up with the same channels:
-    # here LoD's C0736 is filled as usual, and C0544 is absent everywhere.
+def test_unknown_tuning_name_is_an_error(tmp_path):
+    # A name outside the 7 expected tunings means a recording setup ATARI
+    # doesn't know, so stop rather than guess where it belongs.
+    scan = tmp_path / SCAN
+    shutil.copytree(UVH5 / SCAN, scan)
+    (scan / 'LoA.C1504').rename(scan / 'LoA.C1696')
+
+    with pytest.raises(ValueError, match='C1696'):
+        uvh5_files.read_lo(str(scan) + '/', 'LoA')
+
+
+def test_tuning_missing_from_every_lo_is_filled(tmp_path):
+    # Each LO is expected to have all 7 tunings on its own, regardless of
+    # what the other LOs recorded, so a tuning no LO recorded is filled too.
     data = tmp_path / 'uvh5'
     shutil.copytree(UVH5, data)
     for tuning in data.glob('uvh5_*/Lo?.C0544'):
         shutil.rmtree(tuning)
-    tunings = uvh5_files.observation_tunings(str(data))
-    assert 'C0544' not in tunings
 
-    los = [uvh5_files.read_lo(str(data / SCAN) + '/', lo, tunings) for lo in ['LoA', 'LoB', 'LoC', 'LoD']]
+    los = [uvh5_files.read_lo(str(data / SCAN) + '/', lo) for lo in ['LoA', 'LoB', 'LoC', 'LoD']]
 
-    assert [uvd.Nfreqs for uvd in los] == [6 * 32] * 4
-    offsets = [uvd.freq_array - uvd.freq_array[0] for uvd in los]
-    assert all(np.array_equal(offsets[0], o) for o in offsets)
+    assert [uvd.Nfreqs for uvd in los] == [7 * 32] * 4
+    complete = uvh5_files.read_lo(str(UVH5 / SCAN) + '/', 'LoA')
+    assert np.array_equal(los[0].freq_array, complete.freq_array)
+    for uvd in los:
+        assert tuning_flags(uvd, TUNINGS)[1]

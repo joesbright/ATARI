@@ -24,7 +24,7 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (63 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 63 run:
+`uv run pytest -rs` (64 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 64 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
@@ -72,7 +72,7 @@ Known bugs and open questions are GitHub issues (`gh issue list`).
   - `STATE/OBS_MODE` is overwritten with exactly 5 rows (a no-op: CASA's concat output has no STATE rows).
   - The u=0 clip assumes field IDs 0–2.
   - The deep image uses the `imsize`/`cell` of the last SPW processed (always LoD now).
-- Recording nodes can drop, so an LO can lack tunings (`LoX.C0352` … `LoX.C1504`), for the whole observation or from partway through. `uvh5_files.read_lo` fills every tuning seen anywhere in the observation (`observation_tunings`) but missing from this scan's LO with zeroed, fully flagged data. A tuning's name is its first channel in 0.5 MHz channels, so its frequencies are a recorded tuning's shifted by the difference; this is checked against each recorded tuning. A tuning missing from every LO in every scan is not filled (all LOs still match). Without the filling:
+- Recording nodes can drop, so an LO can lack tunings (`LoX.C0352` … `LoX.C1504`), for the whole observation or from partway through. Each LO is 672 MHz recorded independently as 7 tunings of 96 MHz (192 × 0.5 MHz channels), always named `uvh5_files.TUNINGS` (C0352–C1504, the first channel number). `uvh5_files.read_lo` expects all 7 for every LO on its own and fills each missing one with zeroed, fully flagged data, at a recorded tuning's frequencies shifted by the difference in channel numbers. Each recorded tuning's start frequency is checked against its name, and an unknown tuning name is an error, so nothing is filled in the wrong place. An LO with no tunings in a scan was not recorded and is not filled. Without the filling:
   - CASA 6.6 `concat` aborts on exit (`ArrayShapeError`) when LOs have different channel counts, leaving stale row counts in `table.dat` that only the `table.lock` files correct. The input columns are variable-shape (`TiledShapeStMan`), so this looks like a CASA bug; the filling sidesteps it rather than explaining it.
   - a scan whose LO lost a tuning gets its own spectral window in `concat`.
   **Never delete `table.lock` files from an MS CASA produced**; use `tests/make_test_ms.py` to make a lock-free copy.

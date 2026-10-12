@@ -6,6 +6,12 @@ from pyuvdata import UVData
 
 from atari.calibrators import skip_field
 
+# Each LO is 672 MHz recorded as 7 tunings of 96 MHz, each in its own
+# LoX.CXXXX folder. A tuning's name is its first channel in 0.5 MHz
+# channels, and every LO uses the same names, though each LO's centre
+# frequency (and recording) is independent.
+TUNINGS = ['C0352', 'C0544', 'C0736', 'C0928', 'C1120', 'C1312', 'C1504']
+
 
 def find_time_ids(mydata):
     # Each scan has several LoC tuning folders, so the time ID must be
@@ -45,19 +51,12 @@ def tuning_name(path):
     return os.path.basename(os.path.dirname(path)).split('.')[-1]
 
 
-def observation_tunings(mydata):
-    # Every tuning recorded for any LO in any scan. All LOs use the same
-    # tuning names, so this is the full set each LO should have even when a
-    # recording node dropped for the whole observation.
-    return sorted({tuning_name(f) for f in glob.glob(mydata + '/uvh5*/Lo?.*/*.uvh5')})
-
-
-def read_lo(folder, lo, tunings):
-    # Read one scan's LO, with any of the observation's tunings that were not
-    # recorded (a recording node dropped) filled in as flagged data. Every
-    # scan of an LO then has the same channels, so CASA concat neither makes
-    # an extra spectral window for some scans nor crashes on LOs with
-    # different channel counts. Returns None if the LO was not recorded.
+def read_lo(folder, lo):
+    # Read one scan's LO, with any of its 7 tunings that were not recorded (a
+    # recording node dropped) filled in as flagged data. Every LO of every
+    # scan then has the same channels, so CASA concat neither makes an extra
+    # spectral window for some scans nor crashes on LOs with different
+    # channel counts. Returns None if the LO was not recorded at all.
     files = find_tuning_files(folder, lo)
     if not files:
         return None
@@ -66,7 +65,11 @@ def read_lo(folder, lo, tunings):
     uvd.read(files, fix_old_proj=False)
 
     recorded = [tuning_name(f) for f in files]
-    missing = [t for t in tunings if t not in recorded]
+    for tuning in recorded:
+        if tuning not in TUNINGS:
+            raise ValueError(folder + lo + '.' + tuning + ' is not one of the expected tunings ('
+                             + ', '.join(TUNINGS) + '), so missing tunings cannot be placed.')
+    missing = [t for t in TUNINGS if t not in recorded]
     if missing:
         # The tuning name is its first channel number in 0.5 MHz channels,
         # so a missing tuning's frequencies are a recorded tuning's shifted

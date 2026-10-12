@@ -12,7 +12,7 @@ import math
 from atari import fix_scans
 from atari.calibrators import classify_field
 from atari.cli import parse_args, resolve_refant
-from atari.uvh5_files import find_converted_ms, find_time_ids, observation_tunings, read_lo
+from atari.uvh5_files import find_converted_ms, find_time_ids, read_lo
 from atari.write_casa_scripts import write_flag_antennas
 import glob
 from functools import partial
@@ -28,8 +28,6 @@ def antenna_ids(ant_names, flagants):
 
 def parallel_file_conversion(timeID, mydata):
 
-    tunings = observation_tunings(mydata)
-
     for folder in glob.glob(mydata + '/uvh5*' + timeID + '*0001/'):
 
         # LoA-LoD become spw0-spw3 in this order (see find_converted_ms).
@@ -37,7 +35,7 @@ def parallel_file_conversion(timeID, mydata):
             msname = folder.rstrip('/') + '_' + lo + '.ms'
             if os.path.isdir(msname):
                 continue
-            uvd = read_lo(folder, lo, tunings)
+            uvd = read_lo(folder, lo)
             if uvd is None:
                 # This LO was not recorded.
                 continue
