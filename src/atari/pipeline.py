@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -10,13 +11,20 @@ import scipy as sp
 import math
 from atari import fix_scans
 from atari.calibrators import classify_field
-from atari.cli import parse_args
-from atari.uvh5_files import find_converted_ms, find_time_ids
+from atari.cli import parse_args, resolve_refant
+from atari.uvh5_files import find_converted_ms, find_time_ids, find_tuning_files
+from atari.write_casa_scripts import write_flag_antennas
 import glob
 from functools import partial
 from pyuvdata import UVData
 from termcolor import colored
 import multiprocessing
+
+
+def antenna_ids(ant_names, flagants):
+    # The row numbers of the named antennas, as CASA's antenna selection
+    # expects, e.g. '0,5'. Empty if none of them are in the MS.
+    return ','.join(str(i) for i in range(len(ant_names)) if ant_names[i] in flagants)
 
 
 def parallel_file_conversion(timeID, mydata):
@@ -25,25 +33,25 @@ def parallel_file_conversion(timeID, mydata):
 
         if os.path.isdir(folder.rstrip('/') + '_LoA.ms') == False:
             uvd_A = UVData()
-            uvd_A.read(glob.glob(folder + 'LoA*/*.uvh5'), fix_old_proj=False)
+            uvd_A.read(find_tuning_files(folder, 'LoA'), fix_old_proj=False)
             uvd_A.write_ms(folder.rstrip('/') + '_LoA.ms')
             fix_scans.fix_spw(folder.rstrip('/') + '_LoA.ms')
 
         if os.path.isdir(folder.rstrip('/') + '_LoB.ms') == False:
             uvd_B = UVData()
-            uvd_B.read(glob.glob(folder + 'LoB*/*.uvh5'), fix_old_proj=False)
+            uvd_B.read(find_tuning_files(folder, 'LoB'), fix_old_proj=False)
             uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
             fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
 
         if os.path.isdir(folder.rstrip('/') + '_LoC.ms') == False:
             uvd_C = UVData()
-            uvd_C.read(glob.glob(folder + 'LoC*/*.uvh5'), fix_old_proj=False)
+            uvd_C.read(find_tuning_files(folder, 'LoC'), fix_old_proj=False)
             uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
             fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
 
         if os.path.isdir(folder.rstrip('/') + '_LoD.ms') == False:
             uvd_D = UVData()
-            uvd_D.read(glob.glob(folder + 'LoD*/*.uvh5'), fix_old_proj=False)
+            uvd_D.read(find_tuning_files(folder, 'LoD'), fix_old_proj=False)
             uvd_D.write_ms(folder.rstrip('/') + '_LoD.ms')
             fix_scans.fix_spw(folder.rstrip('/') + '_LoD.ms')
 
@@ -68,7 +76,7 @@ def main(argv=None):
     mydata = args.msname
     casapath = args.casapath
     chanbin = args.chanbin
-    flagants = args.flagants.split(',')
+    flagants = args.flagants
 
     if len(mydata) != 1:
         print(colored('Only one dataset should be given. Exiting.', 'red'))
@@ -91,31 +99,28 @@ def main(argv=None):
         with table(final_concat[0] + '/ANTENNA/') as t:
             ant_names = t.getcol('NAME')
 
-        if flagants != ['']:
-            flagants = [i for i in range(len(ant_names)) if ant_names[i] in flagants]
-            flagants = [str(x) for x in flagants]
-            flagants = ','.join(flagants)
+        flagants = antenna_ids(ant_names, flagants)
 
         f = open('concat_command.py', 'w')
         f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
-        if flagants != ['']:
+        if flagants != '':
             f.write('\n')
             f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms_tmp2.ms\', antenna=\'!' + flagants + '\', datacolumn=\'DATA\')')
         f.close()
         os.system(casapath + ' --nologger --log2term --nologfile -c concat_command.py')
 
-        if flagants != ['']:
+        if flagants != '':
             os.system('aoflagger ' + mydata + '/master_ms_tmp2.ms')
         else:
             os.system('aoflagger ' + mydata + '/master_ms_tmp.ms')
 
-        if flagants != ['']:
+        if flagants != '':
             fix_scans.fix_scans(mydata + '/master_ms_tmp2.ms')
         else:
             fix_scans.fix_scans(mydata + '/master_ms_tmp.ms')
 
         f = open('avg_command.py', 'w')
-        if flagants != ['']:
+        if flagants != '':
             f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp2.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
         else:
             f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
@@ -135,14 +140,12 @@ def main(argv=None):
         with table(mydata + '/ANTENNA/') as t:
             ant_names = t.getcol('NAME')
 
-        flagants = [i for i in range(len(ant_names)) if ant_names[i] in flagants]
-        flagants = [str(x) for x in flagants]
-        flagants = ','.join(flagants)
+        flagants = antenna_ids(ant_names, flagants)
 
         if flagants != '':
-            f = open('flag_command.py', 'w')
-            f.write('flagdata(vis=' + mydata + ', mode=\'manual\', antenna=\'' + flagants + '\')')
-            f.close()
+            # write_flag_antennas appends, so start from an empty file.
+            os.system('rm -f flag_command.py')
+            write_flag_antennas(mydata, flagants, 'flag_command.py')
             os.system(casapath + ' --nologger --log2term --nologfile -c flag_command.py')
             os.system('rm flag_command.py')
         print(colored('Starting with measurement set: ' + mydata + '.', 'red'))
@@ -151,6 +154,16 @@ def main(argv=None):
         logging.error('Unexpected input data type.')
 
     myms = mydata
+
+    # Look the reference antenna up in the measurement set that is
+    # calibrated, i.e. after any --flagants antennas were removed.
+    with table(myms + '/ANTENNA/') as t:
+        ant_names = t.getcol('NAME')
+    try:
+        refant = resolve_refant(args.refant, ant_names, args.flagants)
+    except ValueError as e:
+        sys.exit(colored(str(e), 'red'))
+    print(colored('Reference antenna: ' + ant_names[int(refant)] + ' (index ' + refant + ').', 'red'))
 
     with table(myms) as t:
         scan_numbers = t.getcol('SCAN_NUMBER')
@@ -263,6 +276,7 @@ def main(argv=None):
                                                      item,
                                                      fcal_name,
                                                      fields[field_matching[item]][0],
+                                                     refant,
                                                      '1GC_.py',
                                                      newdir + 'CALIBRATION_TABLES/')
 
