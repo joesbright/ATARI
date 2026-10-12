@@ -1,5 +1,4 @@
 import os
-import argparse
 import logging
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -11,6 +10,7 @@ import scipy as sp
 import math
 from atari import fix_scans
 from atari.calibrators import match_calibrators
+from atari.cli import parse_args
 from atari.uvh5_files import find_converted_ms, find_time_ids
 import glob
 from functools import partial
@@ -63,17 +63,11 @@ def main(argv=None):
     os.system('rm concat_command.py')
     os.system('rm concat_avg_commands.py')
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('msname', type=str, nargs=1, help='name of data set to calibrate, can be a single measurement set, or folder conatining uvh5 files (only measurement sets currently implemented).')
-    parser.add_argument('--casapath', type=str, nargs=1, help='Path to CASA. Needs this if an alias is used.', default='casa')
-    parser.add_argument('--chanbin', type=str, nargs=1, help='number of 0.5 MHz channels to average together', default='8')
-    parser.add_argument('--flagants', type=str, help='comma separated list of antennas to flag', default='')
-    parser.add_argument('--calibrators', type=str, help='file of extra gain calibrator names, one per line, added to the built-in list', default=None)
-    args = parser.parse_args(argv)
+    args = parse_args(argv)
 
     mydata = args.msname
-    casapath = args.casapath[0]
-    chanbin = args.chanbin[0]
+    casapath = args.casapath
+    chanbin = args.chanbin
     flagants = args.flagants.split(',')
 
     if len(mydata) != 1:
