@@ -11,3 +11,5 @@ image_.sh
 1GC_.py
 concat_commands.py
 concat_avg_commands.py
+.venv/
+dist/

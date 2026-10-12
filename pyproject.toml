@@ -1,0 +1,50 @@
+[project]
+name = "ata-atari"
+version = "0.1.0"
+description = "Calibration and imaging pipeline for Allen Telescope Array correlator data"
+readme = "README.md"
+authors = [{ name = "Joe Bright" }]
+requires-python = ">=3.10"
+dependencies = [
+    "astropy>=6.1.7",
+    "numpy>=2.2.6",
+    "pandas>=2.3.3",
+    "python-casacore>=3.8.1",
+    "pyuvdata>=2.2",
+    "scipy>=1.9",
+    "termcolor>=3.3.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# The repository layout is kept as it is. These settings tell hatchling which
+# files belong in the installed package and where to put them: utility/ is
+# installed as atari/, FGC.py as atari/fgc.py, and the calibrator lists as
+# atari/data/. Legacy scripts that the pipeline does not use are left out.
+[tool.hatch.build.targets.wheel]
+only-include = [
+    "utility",
+    "data/calibrator_names.dat",
+    "data/VLA_Calibratorlist.dat",
+]
+exclude = [
+    "utility/uvh5_to_ms.py",
+    "utility/concat_all_*.py",
+    "utility/general_functions.py",
+]
+
+[tool.hatch.build.targets.wheel.sources]
+"utility" = "atari"
+"data" = "atari/data"
+
+[tool.hatch.build.targets.wheel.force-include]
+"ATARI/FGC.py" = "atari/fgc.py"
+
+# For now uv only manages the environment and does not install ATARI itself:
+# editable installs cannot rename folders as the mapping above does, and the
+# scripts still find their modules through ../utility. `uv build` still
+# produces a wheel with the layout above.
+[tool.uv]
+package = false

@@ -4,24 +4,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-ATARI (Allen Telescope Array Radio Imaging) is research code that calibrates and images ATA correlator data. Input is either the ATA's default uvh5 recordings or an existing measurement set. There is no packaging, no test suite, no linter and no environment file.
+ATARI (Allen Telescope Array Radio Imaging) is research code that calibrates and images ATA correlator data. Input is either the ATA's default uvh5 recordings or an existing measurement set. Dependencies are managed with uv (`pyproject.toml`, `uv.lock`). There is no test suite and no linter.
 
 ## Running the pipeline
 
 Everything must be run from inside `ATARI/`: modules are found via `sys.path.insert(0, '../utility')` and data files are opened as `../data/...`.
 
 ```bash
+uv sync              # once, from the repo root
 cd ATARI
-python 01_setup.py <PATH_TO_MS_OR_UVH5_FOLDER> [--casapath <casa>] [--chanbin 8] [--flagants ant1,ant2]
+uv run python 01_setup.py <PATH_TO_MS_OR_UVH5_FOLDER> [--casapath <casa>] [--chanbin 8] [--flagants ant1,ant2]
 casa -c 1GC_.py      # first-generation calibration
 . image_.sh          # WSClean imaging
 ```
 
 On the ATA compute nodes, symlink the data folder and pass the symlink; `--casapath` is needed there.
 
-Dependencies (none are pinned):
-- **Python ≥3.8**: numpy, scipy, astropy, pyuvdata (must accept `fix_old_proj=`), python-casacore, termcolor, pandas.
+Dependencies:
+- **Python ≥3.10**, declared in `pyproject.toml` and locked in `uv.lock`: numpy, scipy, astropy, pyuvdata (must accept `fix_old_proj=`), python-casacore, termcolor, pandas.
+  - python-casacore only ships Linux x86_64 wheels. Elsewhere (including macOS) it builds from source and needs the casacore C++ library; `uv sync --no-install-package python-casacore` installs everything else.
 - **External programs**: CASA (run as a subprocess and used to run `1GC_.py`), aoflagger (uvh5 path only), WSClean.
+
+Packaging is half done (phase 1 of 2):
+- `[tool.uv] package = false`: uv manages the environment but does not install ATARI itself. Hatch's `sources` remapping (`utility/` → `atari/`) does not work with editable installs.
+- `uv build` produces a wheel with `atari/` (from `utility/`), `atari/fgc.py` and `atari/data/*.dat`. Legacy scripts are excluded. The modules do not work as an installed package yet, because they still rely on `sys.path` hacks and `../data` paths.
 
 ## Architecture
 
