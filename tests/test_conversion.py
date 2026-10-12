@@ -22,9 +22,10 @@ SCANS = {
     '61317_13928_5581420': 'AT2026yeh',
 }
 
-# Number of channels and lowest frequency (MHz) of each LO in the test data.
-# LoD has 5 tunings, the others 7, with 32 channels kept per tuning.
-LOS = {'LoA': (224, 2704.0), 'LoB': (224, 4704.0), 'LoC': (224, 6704.0), 'LoD': (160, 8704.0)}
+# Number of channels and lowest frequency (MHz) of each LO in the test data:
+# 7 tunings with 32 channels kept per tuning. LoD only has 5 tunings, but the
+# missing two are filled with flagged data so every LO has the same layout.
+LOS = {'LoA': (224, 2704.0), 'LoB': (224, 4704.0), 'LoC': (224, 6704.0), 'LoD': (224, 8704.0)}
 
 
 @pytest.fixture(scope='module')
@@ -63,6 +64,12 @@ def test_one_measurement_set_per_scan_and_lo(converted, timeid, lo):
         antennas = np.union1d(t.getcol('ANTENNA1'), t.getcol('ANTENNA2'))
         assert len(antennas) == 6
         assert len(np.unique(t.getcol('TIME'))) == 3
+        if lo == 'LoD':
+            # The filled tunings, C0544 and C0736 (channels 32-95), are
+            # flagged in the measurement set; recorded tunings are not.
+            flag = t.getcol('FLAG')
+            assert flag[:, 32:96].all()
+            assert not flag[:, :32].all() and not flag[:, 96:].all()
 
 
 def test_conversion_skips_existing_measurement_sets(converted):
@@ -73,3 +80,20 @@ def test_conversion_skips_existing_measurement_sets(converted):
     marker.touch()
     parallel_file_conversion('61317_11988_5522216', str(converted))
     assert marker.exists()
+
+
+def test_lo_that_was_not_recorded_is_not_converted(tmp_path):
+    # Not every observation records all four LOs. A scan without any LoB
+    # files gets no LoB measurement set, and the other LOs still convert.
+    data = tmp_path / 'uvh5'
+    timeid = '61317_11988_5522216'
+    scan = data / 'uvh5_61317_11988_5522216_3c48_0001'
+    shutil.copytree(UVH5 / scan.name, scan)
+    for tuning in scan.glob('LoB.*'):
+        shutil.rmtree(tuning)
+
+    parallel_file_conversion(timeid, str(data))
+
+    assert not Path(ms_path(data, timeid, 'LoB')).exists()
+    for lo in ('LoA', 'LoC', 'LoD'):
+        assert Path(ms_path(data, timeid, lo)).exists()

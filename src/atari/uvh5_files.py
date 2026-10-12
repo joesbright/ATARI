@@ -1,4 +1,8 @@
 import glob
+import os
+
+import numpy as np
+from pyuvdata import UVData
 
 from atari.calibrators import skip_field
 
@@ -34,3 +38,59 @@ def find_tuning_files(folder, lo):
     # pyuvdata together, so list them in frequency order rather than the
     # order the filesystem gives.
     return sorted(glob.glob(folder + lo + '*/*.uvh5'))
+
+
+def tuning_name(path):
+    # 'C0352' from '.../LoA.C0352/<file>.uvh5'.
+    return os.path.basename(os.path.dirname(path)).split('.')[-1]
+
+
+def observation_tunings(mydata):
+    # Every tuning recorded for any LO in any scan. All LOs use the same
+    # tuning names, so this is the full set each LO should have even when a
+    # recording node dropped for the whole observation.
+    return sorted({tuning_name(f) for f in glob.glob(mydata + '/uvh5*/Lo?.*/*.uvh5')})
+
+
+def read_lo(folder, lo, tunings):
+    # Read one scan's LO, with any of the observation's tunings that were not
+    # recorded (a recording node dropped) filled in as flagged data. Every
+    # scan of an LO then has the same channels, so CASA concat neither makes
+    # an extra spectral window for some scans nor crashes on LOs with
+    # different channel counts. Returns None if the LO was not recorded.
+    files = find_tuning_files(folder, lo)
+    if not files:
+        return None
+
+    uvd = UVData()
+    uvd.read(files, fix_old_proj=False)
+
+    recorded = [tuning_name(f) for f in files]
+    missing = [t for t in tunings if t not in recorded]
+    if missing:
+        # The tuning name is its first channel number in 0.5 MHz channels,
+        # so a missing tuning's frequencies are a recorded tuning's shifted
+        # by the difference in channel numbers.
+        template = UVData()
+        template.read(files[0], fix_old_proj=False)
+        width = template.channel_width[0]
+        # Check that assumption on the tunings that were recorded, rather
+        # than fill in the wrong place.
+        for file, tuning in zip(files, recorded):
+            header = UVData()
+            header.read(file, read_data=False, fix_old_proj=False)
+            start = template.freq_array[0] + (int(tuning[1:]) - int(recorded[0][1:])) * width
+            if not np.isclose(header.freq_array[0], start, rtol=0, atol=abs(width) / 100):
+                raise ValueError(folder + lo + '.' + tuning + ' does not start at the frequency its name '
+                                 'implies, so its missing tunings cannot be placed.')
+        for tuning in missing:
+            fill = template.copy()
+            shift = (int(tuning[1:]) - int(recorded[0][1:])) * width
+            fill.freq_array = template.freq_array + shift
+            fill.data_array[:] = 0
+            fill.nsample_array[:] = 0
+            fill.flag_array[:] = True
+            uvd += fill
+        uvd.reorder_freqs(channel_order='freq')
+
+    return uvd

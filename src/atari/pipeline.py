@@ -12,11 +12,10 @@ import math
 from atari import fix_scans
 from atari.calibrators import classify_field
 from atari.cli import parse_args, resolve_refant
-from atari.uvh5_files import find_converted_ms, find_time_ids, find_tuning_files
+from atari.uvh5_files import find_converted_ms, find_time_ids, observation_tunings, read_lo
 from atari.write_casa_scripts import write_flag_antennas
 import glob
 from functools import partial
-from pyuvdata import UVData
 from termcolor import colored
 import multiprocessing
 
@@ -29,33 +28,21 @@ def antenna_ids(ant_names, flagants):
 
 def parallel_file_conversion(timeID, mydata):
 
+    tunings = observation_tunings(mydata)
+
     for folder in glob.glob(mydata + '/uvh5*' + timeID + '*0001/'):
 
-        if os.path.isdir(folder.rstrip('/') + '_LoA.ms') == False:
-            uvd_A = UVData()
-            uvd_A.read(find_tuning_files(folder, 'LoA'), fix_old_proj=False)
-            uvd_A.write_ms(folder.rstrip('/') + '_LoA.ms')
-            fix_scans.fix_spw(folder.rstrip('/') + '_LoA.ms')
-
-        if os.path.isdir(folder.rstrip('/') + '_LoB.ms') == False:
-            uvd_B = UVData()
-            uvd_B.read(find_tuning_files(folder, 'LoB'), fix_old_proj=False)
-            uvd_B.write_ms(folder.rstrip('/') + '_LoB.ms')
-            fix_scans.fix_spw(folder.rstrip('/') + '_LoB.ms')
-
-        if os.path.isdir(folder.rstrip('/') + '_LoC.ms') == False:
-            uvd_C = UVData()
-            uvd_C.read(find_tuning_files(folder, 'LoC'), fix_old_proj=False)
-            uvd_C.write_ms(folder.rstrip('/') + '_LoC.ms')
-            fix_scans.fix_spw(folder.rstrip('/') + '_LoC.ms')
-
-        if os.path.isdir(folder.rstrip('/') + '_LoD.ms') == False:
-            uvd_D = UVData()
-            uvd_D.read(find_tuning_files(folder, 'LoD'), fix_old_proj=False)
-            uvd_D.write_ms(folder.rstrip('/') + '_LoD.ms')
-            fix_scans.fix_spw(folder.rstrip('/') + '_LoD.ms')
-
-
+        # LoA-LoD become spw0-spw3 in this order (see find_converted_ms).
+        for lo in ['LoA', 'LoB', 'LoC', 'LoD']:
+            msname = folder.rstrip('/') + '_' + lo + '.ms'
+            if os.path.isdir(msname):
+                continue
+            uvd = read_lo(folder, lo, tunings)
+            if uvd is None:
+                # This LO was not recorded.
+                continue
+            uvd.write_ms(msname)
+            fix_scans.fix_spw(msname)
 
     return None
 
