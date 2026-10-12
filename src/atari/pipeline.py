@@ -10,9 +10,9 @@ from atari import fgc as FGC
 import scipy as sp
 import math
 from atari import fix_scans
+from atari.calibrators import match_calibrators
 import glob
 from functools import partial
-from importlib.resources import files
 from pyuvdata import UVData
 from termcolor import colored
 import multiprocessing
@@ -49,21 +49,6 @@ def parallel_file_conversion(timeID, mydata):
 
 
     return None
-
-
-def match_calibrators(source, extra_calibrators=None):
-    # The built-in list ships with the package. extra_calibrators is an
-    # optional file of the user's own additions, in the same format.
-    names = files('atari').joinpath('data/calibrator_names.dat').read_text()
-    if extra_calibrators is not None:
-        with open(extra_calibrators) as f:
-            names += '\n' + f.read()
-
-    iscal = False
-    if source in names:
-        iscal = True
-
-    return(iscal)
 
 
 def main(argv=None):

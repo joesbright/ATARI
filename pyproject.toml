@@ -8,7 +8,6 @@ requires-python = ">=3.10"
 dependencies = [
     "astropy>=6.1.7",
     "numpy>=2.2.6",
-    "pandas>=2.3.3",
     "python-casacore>=3.8.1",
     "pyuvdata>=2.2",
     "scipy>=1.9",
@@ -26,3 +25,8 @@ atari-setup = "atari.pipeline:main"
 # hatchling needs to be told where the package is.
 [tool.hatch.build.targets.wheel]
 packages = ["src/atari"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
