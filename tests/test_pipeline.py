@@ -58,7 +58,7 @@ def test_setup_from_measurement_set(tmp_path, monkeypatch):
     shutil.copytree(TEST_MS, ms)
     monkeypatch.chdir(tmp_path)
 
-    main([str(ms), '--casapath', 'casa'])
+    main([str(ms), '--casapath', 'casa', '--refant', '3'])
 
     check_outputs(tmp_path, tmp_path)
 
@@ -70,6 +70,6 @@ def test_setup_from_uvh5(tmp_path, monkeypatch):
     shutil.copytree(UVH5, data)
     monkeypatch.chdir(tmp_path)
 
-    main([str(data), '--casapath', CASA])
+    main([str(data), '--casapath', CASA, '--refant', '3'])
 
     check_outputs(tmp_path, data)

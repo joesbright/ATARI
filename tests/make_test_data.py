@@ -79,8 +79,8 @@ def trim_file(infile, outfile, n_ants, n_times, n_chans, report=False):
         ant2 = header['ant_2_array'][()]
         times = header['time_array'][()]
 
-        # Keep the lowest-numbered antennas (at least 4: the CASA recipe uses
-        # refant='3'), the first integrations and channels from the middle.
+        # Keep the lowest-numbered antennas (at least 4: the regression tests
+        # use --refant 3), the first integrations and channels from the middle.
         ants = np.union1d(ant1, ant2)[:n_ants]
         keep_times = np.unique(times)[:n_times]
         blts = np.nonzero(np.isin(ant1, ants) & np.isin(ant2, ants) & np.isin(times, keep_times))[0]
@@ -167,7 +167,7 @@ def main():
     args = parser.parse_args()
 
     if args.ants < 4:
-        parser.error('--ants must be at least 4 because the CASA recipe uses refant 3')
+        parser.error('--ants must be at least 4 because the regression tests use --refant 3')
 
     first = True
     for timeid in args.timeids:

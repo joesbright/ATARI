@@ -27,3 +27,10 @@ def find_converted_ms(mydata):
     # windows in that order, so sort by name (LoA, LoB, ...) rather than rely
     # on the order the filesystem lists them.
     return sorted(glob.glob(mydata + '/*.ms'))
+
+
+def find_tuning_files(folder, lo):
+    # The tunings of one LO (e.g. LoA.C0352 ... LoA.C1504) are read by
+    # pyuvdata together, so list them in frequency order rather than the
+    # order the filesystem gives.
+    return sorted(glob.glob(folder + lo + '*/*.uvh5'))

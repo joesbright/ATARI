@@ -39,3 +39,22 @@ def test_find_time_ids_skips_stay_put_scans(tmp_path):
         (tuning / (scan + '.uvh5')).touch()
 
     assert uvh5_files.find_time_ids(str(tmp_path)) == ['61317_11988_5522216']
+
+
+def test_tuning_files_are_listed_in_a_fixed_order(tmp_path, monkeypatch):
+    # Issue #12: the tunings of one LO are passed to pyuvdata together, so
+    # list them in a fixed order rather than the filesystem's.
+    folder = tmp_path / 'uvh5_61317_11988_5522216_3c48_0001'
+    names = []
+    for tuning in ['LoA.C0352', 'LoA.C0544', 'LoA.C0736']:
+        (folder / tuning).mkdir(parents=True)
+        (folder / tuning / (folder.name + '.uvh5')).touch()
+        names.append(tuning)
+    (folder / 'LoB.C0352').mkdir()
+    (folder / 'LoB.C0352' / (folder.name + '.uvh5')).touch()
+    real_glob = glob.glob
+    monkeypatch.setattr(glob, 'glob', lambda pattern: sorted(real_glob(pattern), reverse=True))
+
+    found = uvh5_files.find_tuning_files(str(folder) + '/', 'LoA')
+
+    assert [Path(p).parent.name for p in found] == names

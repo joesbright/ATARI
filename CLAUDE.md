@@ -10,7 +10,7 @@ ATARI (Allen Telescope Array Radio Imaging) is research code that calibrates and
 
 ```bash
 uv sync              # once; installs ATARI in editable mode
-uv run atari-setup <PATH_TO_MS_OR_UVH5_FOLDER> [--casapath <casa>] [--chanbin 8] [--flagants ant1,ant2] [--calibrators extra.dat]
+uv run atari-setup <PATH_TO_MS_OR_UVH5_FOLDER> --refant <name_or_index> [--casapath <casa>] [--chanbin 8] [--flagants ant1,ant2] [--calibrators extra.dat]
 casa -c 1GC_.py      # first-generation calibration
 . image_.sh          # WSClean imaging
 ```
@@ -24,7 +24,7 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (34 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 34 run:
+`uv run pytest -rs` (47 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 47 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
@@ -54,6 +54,7 @@ Flow:
    - Name substring-matched by `atari.calibrators.match_calibrators` against `src/atari/data/calibrator_names.dat` plus the optional `--calibrators` file → gain calibrator.
    - Anything else → target.
    - Each target is paired with its nearest gain calibrator.
+   - `--refant` (required) is looked up in the final MS's ANTENNA table by `cli.resolve_refant`: all digits → index, otherwise name. CASA always gets the index.
 3. **Per target and SPW**: a TaQL query splits out `<target>_spwN/<target>_spwN.ms`, containing the target, its gain calibrator and the flux calibrator, with `IMAGES/`, `CALIBRATION_TABLES/` and `PLOTS/` subfolders. These are written beside the input; `os.mkdir` fails on a re-run if they already exist. For each split:
    - `fgc.first_generation_calibration` writes the CASA recipe: tfcrop/rflag → setjy → G0 → K0 → B0 → G1 → fluxscale → applycal.
    - `fgc.image_all_fields` writes three WSClean commands.
@@ -68,7 +69,6 @@ Layering: `pipeline.py` → `fgc.py` (defines the recipe order; imported as `FGC
 Known bugs and open questions are GitHub issues (`gh issue list`).
 
 - Hard-coded assumptions:
-  - `refant='3'`
   - `STATE/OBS_MODE` is overwritten with exactly 5 rows (a no-op: CASA's concat output has no STATE rows).
   - The u=0 clip assumes field IDs 0–2.
   - The deep image uses the `imsize`/`cell` of the last SPW processed (always LoD now).

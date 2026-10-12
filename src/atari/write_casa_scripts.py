@@ -208,3 +208,17 @@ def write_u0_flag(vislist, script_name):
             f.write('flagdata(' + args + ')\n')
         f.close()
         
+
+def write_flag_antennas(vis, antenna, script_name):
+
+    f = open(script_name, 'a')
+
+    args = 'vis=\''
+    args += vis + '\','
+    args += 'mode='
+    args += '\'manual\','
+    args += 'antenna=\''
+    args += antenna + '\''
+
+    f.write('flagdata(' + args + ')\n')
+    f.close()
