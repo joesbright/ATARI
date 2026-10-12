@@ -24,9 +24,19 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs`. GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13.
-- `tests/test_calibrators.py` and `tests/test_script_writers.py` need no casacore. The script-writer tests parse the generated CASA script with `ast`, which catches broken quoting.
-- `tests/test_pipeline.py` is a regression test. It runs `main()` on a copy of `tests/data/test.ms` and compares `1GC_.py`/`image_.sh` with `tests/data/expected/`, with the temp path replaced by `{WORKDIR}`. It skips if casacore or the data is missing. Regenerate with `ATARI_UPDATE_EXPECTED=1` only for intended behaviour changes, and review the diff.
+`uv run pytest -rs` (24 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 24 run:
+
+```bash
+ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
+```
+
+- Need no casacore (run on macOS): `test_calibrators.py`, `test_script_writers.py` (parses the generated CASA script with `ast`, which catches broken quoting), `test_uvh5_files.py`.
+- `test_conversion.py`: uvh5 → per-LO MS conversion of the test observation with the locked pyuvdata.
+- `test_pipeline.py`: regression tests. They compare `1GC_.py`/`image_.sh` with `tests/data/expected/` (temp path replaced by `{WORKDIR}`), from two routes:
+  - `tests/data/master_ms.ms` (needs casacore only);
+  - `tests/data/uvh5/` (also needs CASA and aoflagger; `ATARI_CASAPATH` if casa is an alias).
+- Test data: `tests/data/uvh5/` is three scans of p060 2026-10-04 (3c48, 0038+416, AT2026yeh), cut with `tests/make_test_data.py` (h5py, so the raw files' old uvh5 layout is kept). LoD has only 5 tunings because recording nodes dropped; that is deliberate and realistic.
+- Changing expected outputs (only for intended behaviour changes): on a node, run the uvh5 test with `ATARI_UPDATE_EXPECTED=1 ... --basetemp=$HOME/atari_regen`, clean its `master_ms.ms` with `tests/make_test_ms.py`, copy both back, and check the old → new diff is exactly the intended change before committing.
 
 ## Architecture
 
@@ -34,8 +44,8 @@ Dependencies:
 
 Flow:
 1. **uvh5 input**:
-   - A `multiprocessing.Pool` runs `parallel_file_conversion` once per time ID. It converts each LO (`LoA`–`LoD`, hard-coded) to MS via pyuvdata and calls `fix_scans.fix_spw`.
-   - CASA (via generated temp scripts run with `os.system`) concatenates the MSs and optionally drops antennas.
+   - `uvh5_files.find_time_ids` lists each scan once, and a `multiprocessing.Pool` runs `parallel_file_conversion` per time ID. It converts each LO (`LoA`–`LoD`, hard-coded) to MS via pyuvdata and calls `fix_scans.fix_spw`.
+   - CASA (via generated temp scripts run with `os.system`) concatenates the MSs, listed in sorted order by `uvh5_files.find_converted_ms` so LoA–LoD become spw0–spw3, and optionally drops antennas.
    - aoflagger flags, `fix_scans.fix_scans` renumbers scans, and CASA channel-averages into `<input>/master_ms.ms`.
    - Expected layout: `<dir>/uvh5*<timeID>*0001/Lo?*/*.uvh5`. The time ID and field name come from fixed `_`-separated positions in the filename.
 2. **Field classification**:
@@ -48,16 +58,20 @@ Flow:
    - `fgc.image_all_fields` writes three WSClean commands.
 4. **Final steps**: a deep WSClean image over all splits is written to `DEEP_IMAGE/`. `fgc.flag_u0` adds a 99th-percentile amplitude clip to `1GC_.py`.
 
-Layering: `pipeline.py` → `fgc.py` (defines the recipe order; imported as `FGC`) → `write_casa_scripts.py` / `write_wsclean_scripts.py`. These two build CASA task calls and WSClean commands by string concatenation, so check quoting carefully when editing them. `fix_scans.py` edits MS tables in place. `calibrators.py` is kept free of casacore so it can be tested anywhere.
+Layering: `pipeline.py` → `fgc.py` (defines the recipe order; imported as `FGC`) → `write_casa_scripts.py` / `write_wsclean_scripts.py`. These two build CASA task calls and WSClean commands by string concatenation, so check quoting carefully when editing them. `fix_scans.py` edits MS tables in place. `calibrators.py` and `uvh5_files.py` are kept free of casacore so they can be tested anywhere.
 
 `legacy/` holds code the pipeline does not use and that is not packaged: `uvh5_to_ms.py`, `concat_all_{b,c}.py` (old `seti-node*` layout), `general_functions.py` (needs CASA's `tb`), and `find_phase_calibrator.py` (a one-off that generated `calibrator_names.dat`; it runs code on import).
 
 ## Gotchas
 
+Known bugs and open questions are GitHub issues (`gh issue list`).
+
 - Hard-coded assumptions:
   - `refant='3'`
-  - `STATE/OBS_MODE` is overwritten with exactly 5 rows.
+  - `STATE/OBS_MODE` is overwritten with exactly 5 rows (a no-op: CASA's concat output has no STATE rows).
   - The u=0 clip assumes field IDs 0–2.
-  - The deep image uses the `imsize`/`cell` of the last SPW processed.
+  - The deep image uses the `imsize`/`cell` of the last SPW processed (always LoD now).
+- Recording nodes can drop, so an LO can have fewer than 7 tunings, and different channel counts from the others. CASA `concat` then aborts on exit (`ArrayShapeError`), leaving stale row counts in `table.dat` that only the `table.lock` files correct. **Never delete `table.lock` files from an MS CASA produced**; use `tests/make_test_ms.py` to make a lock-free copy.
+- `os.system` failures are ignored, so a missing CASA or aoflagger does not stop the run.
 - TaQL queries refer to Python variables as `$name` (e.g. `$y`, `$tm`), so linters report those variables as unused. Don't remove them.
 - `.gitignore` anchors `/data/` to the repo root on purpose. An unanchored `data/` would hide `src/atari/data/` and `tests/data/` from git and from the wheel.
