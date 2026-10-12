@@ -10,6 +10,8 @@ jobs:
     # full suite (including the pipeline regression test) runs here.
     runs-on: ubuntu-latest
     strategy:
+      # Report every Python version even if one fails.
+      fail-fast: false
       matrix:
         # The oldest supported Python and a recent one.
         python-version: ["3.10", "3.13"]
