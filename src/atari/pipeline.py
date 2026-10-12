@@ -51,6 +51,19 @@ def parallel_file_conversion(timeID, mydata):
     return None
 
 
+def find_time_ids(mydata):
+    # Each scan has several LoC tuning folders, so the time ID must be
+    # collected once per scan, not once per file. Duplicates made the
+    # conversion pool convert the same scan in several workers at once, which
+    # fails when the second worker finds the first one's MS already written.
+    timeIDs = set()
+    for file in glob.glob(mydata + '/uvh5*/LoC*/' + '*.uvh5'):
+        parts = file.split('/')[-1].split('_')
+        timeIDs.add(parts[1] + '_' + parts[2] + '_' + parts[3])
+
+    return sorted(timeIDs)
+
+
 def main(argv=None):
     cwd = os.getcwd()
     logging.info('Working from ' + str(cwd))
@@ -84,18 +97,7 @@ def main(argv=None):
     if os.path.isdir(mydata) == True and mydata.endswith('.ms') == False and mydata.endswith('.ms/') == False:
         print(colored('Starting with folder: ' + mydata + '.', 'red'))
         # CONVERT TO MEASUREMENT SET FIRST
-        myuvfiles_A = glob.glob(mydata + '/uvh5*/LoA*/' + '*.uvh5')
-        myuvfiles_B = glob.glob(mydata + '/uvh5*/LoB*/' + '*.uvh5')
-        myuvfiles_C = glob.glob(mydata + '/uvh5*/LoC*/' + '*.uvh5')
-        myuvfiles_D = glob.glob(mydata + '/uvh5*/LoD*/' + '*.uvh5')
-
-
-        fields = []
-        timeIDs = []
-        for file in myuvfiles_C:
-            fields.append(file.split('/')[-1].split('_')[4])
-            timeIDs.append(file.split('/')[-1].split('_')[1] + '_' + file.split('/')[-1].split('_')[2] + '_' + file.split('/')[-1].split('_')[3])
-        unique_fields = list(set(fields))
+        timeIDs = find_time_ids(mydata)
 
         with multiprocessing.Pool() as pool:
             results = pool.map(partial(parallel_file_conversion, mydata=mydata), timeIDs)
