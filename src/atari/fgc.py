@@ -1,8 +1,5 @@
-import sys
-import os
-sys.path.insert(0, os.path.abspath('../utility'))
-import write_casa_scripts
-import write_wsclean_scripts
+from atari import write_casa_scripts
+from atari import write_wsclean_scripts
 
 
 def write_comments(script_name, target, spw):
