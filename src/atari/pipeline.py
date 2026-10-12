@@ -9,7 +9,7 @@ from atari import fgc as FGC
 import scipy as sp
 import math
 from atari import fix_scans
-from atari.calibrators import match_calibrators
+from atari.calibrators import classify_field
 from atari.cli import parse_args
 from atari.uvh5_files import find_converted_ms, find_time_ids
 import glob
@@ -183,17 +183,18 @@ def main(argv=None):
     # determine flux calibrators, phase calibrators, sources
     myintents = []
     for key in fields:
-        if fields[key] in {'3c286', '3c48', '3c147'}:
-            fields[key] = [fields[key], 'FLUX_CAL']
+        kind = classify_field(fields[key], args.calibrators)
+        fields[key] = [fields[key], kind]
+        if kind == 'FLUX_CAL':
             fcal_name = fields[key][0]
             print(colored('The flux calibrator is ' + str(fcal_name) + '.', 'red'))
             myintents.append('#FCAL')
-        elif match_calibrators(fields[key], args.calibrators) == True:
-            fields[key] = [fields[key], 'PHASE_CAL']
+        elif kind == 'PHASE_CAL':
             myintents.append('#GCAL')
-        else:
-            fields[key] = [fields[key], 'TARGET']
+        elif kind == 'TARGET':
             myintents.append('#TARGET')
+        else:
+            print(colored('Skipping field ' + fields[key][0] + '.', 'red'))
 
     ordered_target_fields = []
     ordered_pcal_fields = []

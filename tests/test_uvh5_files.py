@@ -26,3 +26,16 @@ def test_converted_ms_are_listed_in_a_fixed_order(tmp_path, monkeypatch):
     found = uvh5_files.find_converted_ms(str(tmp_path))
 
     assert [Path(p).name for p in found] == names
+
+
+def test_find_time_ids_skips_stay_put_scans(tmp_path):
+    # Issue #5: Stay_put scans are recorded while the sources are below the
+    # horizon, so they are not converted at all. The field name can contain
+    # underscores, so it is everything between the time ID and the _0001.
+    for scan in ['uvh5_61317_11988_5522216_3c48_0001',
+                 'uvh5_61317_53798_6798156_Stay_put_0001']:
+        tuning = tmp_path / scan / 'LoC.C0352'
+        tuning.mkdir(parents=True)
+        (tuning / (scan + '.uvh5')).touch()
+
+    assert uvh5_files.find_time_ids(str(tmp_path)) == ['61317_11988_5522216']
