@@ -19,7 +19,7 @@ casa -c 1GC_.py      # first-generation calibration
 
 Dependencies:
 - **Python ≥3.10**, declared in `pyproject.toml` and locked in `uv.lock`: numpy, scipy, astropy, pyuvdata (must accept `fix_old_proj=`), python-casacore, termcolor. pytest is in the `dev` dependency group.
-  - python-casacore only ships Linux x86_64 wheels. Elsewhere (including macOS) it builds from source and needs the casacore C++ library; `uv sync --no-install-package python-casacore` installs everything else. With casacore missing, use `uv run --no-sync`, because plain `uv run` re-syncs and tries to build it.
+  - python-casacore only ships Linux x86_64 wheels. Elsewhere (including macOS) it builds from source and needs the casacore C++ library; `uv sync --no-install-package python-casacore` installs everything else. With casacore missing, use `uv run --no-sync`, because plain `uv run` re-syncs and tries to build it. On macOS (including arm64), conda-forge ships python-casacore 3.8.1: a conda/micromamba env with it plus the other packages at their `uv.lock` versions (`uv export --frozen --no-hashes --no-emit-project --group dev --no-emit-package python-casacore`, then `pip install -r` and `pip install --no-deps -e .`) runs every test except the uvh5 route, which stays on the ATA nodes (no aoflagger build for macOS, and its CASA version differs).
 - **External programs**: CASA (run as a subprocess and used to run `1GC_.py`), aoflagger (uvh5 path only), WSClean.
 
 ## Tests
