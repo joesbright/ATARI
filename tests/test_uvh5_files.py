@@ -167,3 +167,21 @@ def test_tuning_whose_name_does_not_match_its_frequencies_is_an_error(tmp_path):
 
     with pytest.raises(ValueError, match='LoA.C0560'):
         uvh5_files.read_lo(str(scan) + '/', 'LoA', TUNINGS + ['C0560'])
+
+
+def test_tuning_missing_from_every_lo_is_left_out_consistently(tmp_path):
+    # If no LO recorded a tuning in any scan, nothing says it should exist,
+    # so it is not filled. Every LO still ends up with the same channels:
+    # here LoD's C0736 is filled as usual, and C0544 is absent everywhere.
+    data = tmp_path / 'uvh5'
+    shutil.copytree(UVH5, data)
+    for tuning in data.glob('uvh5_*/Lo?.C0544'):
+        shutil.rmtree(tuning)
+    tunings = uvh5_files.observation_tunings(str(data))
+    assert 'C0544' not in tunings
+
+    los = [uvh5_files.read_lo(str(data / SCAN) + '/', lo, tunings) for lo in ['LoA', 'LoB', 'LoC', 'LoD']]
+
+    assert [uvd.Nfreqs for uvd in los] == [6 * 32] * 4
+    offsets = [uvd.freq_array - uvd.freq_array[0] for uvd in los]
+    assert all(np.array_equal(offsets[0], o) for o in offsets)
