@@ -1,6 +1,25 @@
 import numpy as np
 
 
+def channel_selection(spw_id, flagged):
+    # A CASA spw selection such as '3:0~3;12~27' that leaves out the channels
+    # flagged in every row (flagged[i] is True for those), e.g. tunings filled
+    # in by uvh5_files.read_lo. Empty if there are none to leave out, or if
+    # every channel is flagged.
+    flagged = np.asarray(flagged, dtype=bool)
+    if not flagged.any() or flagged.all():
+        return ''
+    ranges = []
+    start = None
+    for i, f in enumerate(list(flagged) + [True]):
+        if not f and start is None:
+            start = i
+        elif f and start is not None:
+            ranges.append(str(start) + '~' + str(i - 1))
+            start = None
+    return str(spw_id) + ':' + ';'.join(ranges)
+
+
 def write_mstransform(vis, 
                       outputvis, 
                       antenna, 
@@ -45,7 +64,8 @@ def write_gaincal(vis,
                   outdir,
                   gaintype='G', 
                   gaintable=[], 
-                  append=False,):
+                  append=False,
+                  spw=''):
     
     f = open(script_name, 'a')
 
@@ -53,6 +73,9 @@ def write_gaincal(vis,
     args += vis + '\','
     args += 'field=\''
     args += str(field) + '\','
+    if spw != '':
+        args += 'spw=\''
+        args += spw + '\','
     args += 'refant=\''
     args += refant + '\','
     args += 'calmode=\''

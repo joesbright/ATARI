@@ -3,6 +3,9 @@ scripts. These build commands by joining strings, so the main risks are
 broken quoting and steps in the wrong order."""
 import ast
 
+import numpy as np
+import pytest
+
 from atari import fgc, write_casa_scripts
 
 
@@ -102,3 +105,34 @@ def test_flag_antennas_command_is_valid(tmp_path):
 
     assert casa_calls(script) == [
         ('flagdata', {'vis': '/obs/master_ms.ms', 'mode': 'manual', 'antenna': '0,5'})]
+
+
+@pytest.mark.parametrize('flagged, selection', [
+    ([], ''),                                      # nothing flagged everywhere
+    ([4, 5, 6, 7, 8, 9, 10, 11], '3:0~3;12~27'),   # LoD's filled C0544, C0736
+    ([0, 1, 2, 3], '3:4~27'),                      # start
+    ([24, 25, 26, 27], '3:0~23'),                  # end
+    ([0, 1, 10, 27], '3:2~9;11~26'),               # several gaps
+    (list(range(28)), ''),                         # everything: leave CASA to report it
+])
+def test_channel_selection_leaves_out_channels_flagged_everywhere(flagged, selection):
+    # Issue #10 follow-up: fluxscale reports each spw's flux density at the
+    # centre of the G1 solve's selected channels, flagged or not, so leave
+    # out channels with no data at all (e.g. filled tunings).
+    mask = np.zeros(28, dtype=bool)
+    mask[flagged] = True
+    assert write_casa_scripts.channel_selection(3, mask) == selection
+
+
+def test_g1_solves_use_the_channel_selection(tmp_path):
+    script = tmp_path / '1GC_.py'
+    fgc.first_generation_calibration('/obs/target_spw3.ms', 'target', '3c286', '1331+305', '5',
+                                     str(script), '/obs/CALIBRATION_TABLES/', g1_spw='3:0~3;12~27')
+
+    gaincals = [kwargs for name, kwargs in casa_calls(script) if name == 'gaincal']
+    for kwargs in gaincals:
+        if kwargs['caltable'].endswith('.G1'):
+            assert kwargs['spw'] == '3:0~3;12~27'
+        else:
+            assert 'spw' not in kwargs
+    assert sum(k['caltable'].endswith('.G1') for k in gaincals) == 2

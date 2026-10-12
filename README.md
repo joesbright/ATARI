@@ -36,6 +36,8 @@ Note: ATARI relies on a built-in list of calibrator names (`src/atari/data/calib
 
 Scans named `Stay_put` (in any capitalisation) are recorded while the sources are below the horizon, and are skipped completely: they are not converted, calibrated or imaged.
 
+If recording nodes dropped out, some LOs can be missing tunings (`LoA.C0544` etc.), for the whole observation or from partway through. ATARI fills each missing tuning with flagged data at its frequencies, so every LO keeps the same channel layout in every scan. An LO that was not recorded at all is skipped.
+
 ## Options
 | Option | Required | Meaning |
 |---|---|---|

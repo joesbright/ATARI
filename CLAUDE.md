@@ -24,7 +24,7 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (47 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 47 run:
+`uv run pytest -rs` (71 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 71 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
@@ -35,8 +35,8 @@ ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
 - `test_pipeline.py`: regression tests. They compare `1GC_.py`/`image_.sh` with `tests/data/expected/` (temp path replaced by `{WORKDIR}`), from two routes:
   - `tests/data/master_ms.ms` (needs casacore only);
   - `tests/data/uvh5/` (also needs CASA and aoflagger; `ATARI_CASAPATH` if casa is an alias).
-- Test data: `tests/data/uvh5/` is three scans of p060 2026-10-04 (3c48, 0038+416, AT2026yeh), cut with `tests/make_test_data.py` (h5py, so the raw files' old uvh5 layout is kept). LoD has only 5 tunings because recording nodes dropped; that is deliberate and realistic.
-- Changing expected outputs (only for intended behaviour changes): on a node, run the uvh5 test with `ATARI_UPDATE_EXPECTED=1 ... --basetemp=$HOME/atari_regen`, clean its `master_ms.ms` with `tests/make_test_ms.py`, copy both back, and check the old → new diff is exactly the intended change before committing.
+- Test data: `tests/data/uvh5/` is three scans of p060 2026-10-04 (3c48, 0038+416, AT2026yeh), cut with `tests/make_test_data.py` (h5py, so the raw files' old uvh5 layout is kept). LoD has only 5 tunings because recording nodes dropped; that is deliberate and realistic. Each tuning is cut to its middle 32 channels, so the test LOs have gaps between tunings (real tunings have 192 channels and abut).
+- Changing expected outputs (only for intended behaviour changes): on a node, run the uvh5 test with `ATARI_UPDATE_EXPECTED=1 ... --basetemp=/tmp/atari_regen`, clean its `master_ms.ms` (`/tmp/atari_regen/test_setup_from_uvh50/uvh5/master_ms.ms`) with `tests/make_test_ms.py`, copy both back (the nodes can't push to GitHub, so `scp` them to a machine that can), and check the old → new diff is exactly the intended change before committing.
 
 ## Architecture
 
@@ -44,7 +44,7 @@ ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
 
 Flow:
 1. **uvh5 input**:
-   - `uvh5_files.find_time_ids` lists each scan once, leaving out skipped fields (below), and a `multiprocessing.Pool` runs `parallel_file_conversion` per time ID. It converts each LO (`LoA`–`LoD`, hard-coded) to MS via pyuvdata and calls `fix_scans.fix_spw`.
+   - `uvh5_files.find_time_ids` lists each scan once, leaving out skipped fields (below), and a `multiprocessing.Pool` runs `parallel_file_conversion` per time ID. It converts each LO (`LoA`–`LoD`, hard-coded) to MS via `uvh5_files.read_lo` and pyuvdata's `write_ms`, and calls `fix_scans.fix_spw`. An LO with no files in a scan was not recorded and is skipped.
    - CASA (via generated temp scripts run with `os.system`) concatenates the MSs, listed in sorted order by `uvh5_files.find_converted_ms` so LoA–LoD become spw0–spw3, and optionally drops antennas.
    - aoflagger flags, `fix_scans.fix_scans` renumbers scans, and CASA channel-averages into `<input>/master_ms.ms`.
    - Expected layout: `<dir>/uvh5*<timeID>*0001/Lo?*/*.uvh5`. The time ID comes from fixed `_`-separated positions in the filename; the field name is everything between it and the trailing `_0001`, since it can contain underscores.
@@ -72,7 +72,11 @@ Known bugs and open questions are GitHub issues (`gh issue list`).
   - `STATE/OBS_MODE` is overwritten with exactly 5 rows (a no-op: CASA's concat output has no STATE rows).
   - The u=0 clip assumes field IDs 0–2.
   - The deep image uses the `imsize`/`cell` of the last SPW processed (always LoD now).
-- Recording nodes can drop, so an LO can have fewer than 7 tunings, and different channel counts from the others. CASA `concat` then aborts on exit (`ArrayShapeError`), leaving stale row counts in `table.dat` that only the `table.lock` files correct. **Never delete `table.lock` files from an MS CASA produced**; use `tests/make_test_ms.py` to make a lock-free copy.
+- Recording nodes can drop, so an LO can lack tunings (`LoX.C0352` … `LoX.C1504`), for the whole observation or from partway through. Each LO is 672 MHz recorded independently as 7 tunings of 96 MHz (192 × 0.5 MHz channels), always named `uvh5_files.TUNINGS` (C0352–C1504, the first channel number). `uvh5_files.read_lo` expects all 7 for every LO on its own and fills each missing one with zeroed, fully flagged data, at a recorded tuning's frequencies shifted by the difference in channel numbers. Each recorded tuning's start frequency is checked against its name, and an unknown tuning name is an error, so nothing is filled in the wrong place. An LO with no tunings in a scan was not recorded and is not filled. Without the filling:
+  - CASA 6.6 `concat` aborts on exit (`ArrayShapeError`) when LOs have different channel counts, leaving stale row counts in `table.dat` that only the `table.lock` files correct. The input columns are variable-shape (`TiledShapeStMan`), so this looks like a CASA bug; the filling sidesteps it rather than explaining it.
+  - a scan whose LO lost a tuning gets its own spectral window in `concat`.
+  Filled channels are flagged, but CASA `fluxscale` reports each spw's flux density at the centre of *all* the G1 solve's selected channels, flagged or not (checked on CASA 6.6: LoD reported at 8999.75 MHz, the unflagged centre is 9057.35 MHz). So `pipeline.flagged_everywhere` finds channels flagged in every row of each split, and `write_casa_scripts.channel_selection` leaves them out of the two G1 `gaincal` calls (`spw='3:0~3;12~27'`); other gaincals and spws are unchanged.
+  **Never delete `table.lock` files from an MS CASA produced**; use `tests/make_test_ms.py` to make a lock-free copy.
 - `os.system` failures are ignored, so a missing CASA or aoflagger does not stop the run.
 - TaQL queries refer to Python variables as `$name` (e.g. `$y`, `$tm`), so linters report those variables as unused. Don't remove them.
 - `.gitignore` anchors `/data/` to the repo root on purpose. An unanchored `data/` would hide `src/atari/data/` and `tests/data/` from git and from the wheel.
