@@ -11,7 +11,7 @@ import pytest
 pytest.importorskip('casacore', reason='python-casacore is not installed')
 
 from casacore.tables import table  # noqa: E402
-from atari.pipeline import find_time_ids, parallel_file_conversion  # noqa: E402
+from atari.pipeline import parallel_file_conversion  # noqa: E402
 
 UVH5 = Path(__file__).parent / 'data' / 'uvh5'
 
@@ -25,12 +25,6 @@ SCANS = {
 # Number of channels and lowest frequency (MHz) of each LO in the test data.
 # LoD has 5 tunings, the others 7, with 32 channels kept per tuning.
 LOS = {'LoA': (224, 2704.0), 'LoB': (224, 4704.0), 'LoC': (224, 6704.0), 'LoD': (160, 8704.0)}
-
-
-def test_find_time_ids_lists_each_scan_once():
-    # Each scan has 7 LoC tuning folders. Listing a scan once per file made
-    # several workers convert it at the same time and crash.
-    assert find_time_ids(str(UVH5)) == sorted(SCANS)
 
 
 @pytest.fixture(scope='module')

@@ -11,6 +11,7 @@ import scipy as sp
 import math
 from atari import fix_scans
 from atari.calibrators import match_calibrators
+from atari.uvh5_files import find_converted_ms, find_time_ids
 import glob
 from functools import partial
 from pyuvdata import UVData
@@ -51,19 +52,6 @@ def parallel_file_conversion(timeID, mydata):
     return None
 
 
-def find_time_ids(mydata):
-    # Each scan has several LoC tuning folders, so the time ID must be
-    # collected once per scan, not once per file. Duplicates made the
-    # conversion pool convert the same scan in several workers at once, which
-    # fails when the second worker finds the first one's MS already written.
-    timeIDs = set()
-    for file in glob.glob(mydata + '/uvh5*/LoC*/' + '*.uvh5'):
-        parts = file.split('/')[-1].split('_')
-        timeIDs.add(parts[1] + '_' + parts[2] + '_' + parts[3])
-
-    return sorted(timeIDs)
-
-
 def main(argv=None):
     cwd = os.getcwd()
     logging.info('Working from ' + str(cwd))
@@ -102,7 +90,7 @@ def main(argv=None):
         with multiprocessing.Pool() as pool:
             results = pool.map(partial(parallel_file_conversion, mydata=mydata), timeIDs)
 
-        final_concat = glob.glob(mydata + '/*.ms')
+        final_concat = find_converted_ms(mydata)
 
         print(colored('Combining spectral chunks.', 'red'))
 
