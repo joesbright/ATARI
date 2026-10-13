@@ -12,7 +12,7 @@ import math
 from atari import fix_scans
 from atari.calibrators import calibrator_problems, classify_field
 from atari.cli import input_kind, output_folder, parse_args, resolve_refant
-from atari.log import logger, run, setup_logging, setup_worker
+from atari.log import Progress, logger, run, setup_logging, setup_worker
 from atari.uvh5_files import find_converted_ms, find_fields, find_time_ids, read_lo
 from atari.write_casa_scripts import channel_selection, write_flag_antennas
 import glob
@@ -64,7 +64,8 @@ def parallel_file_conversion(timeID, mydata):
             fix_scans.fix_spw(msname)
             logger.debug('Converted ' + msname)
 
-    return None
+    # The field name, to show progress with.
+    return '_'.join(os.path.basename(folder.rstrip('/')).split('_')[4:-1])
 
 
 def check_fields(names, extra_calibrators):
@@ -106,8 +107,11 @@ def main(argv=None):
         timeIDs = find_time_ids(mydata)
 
         logger.info('Converting ' + str(len(timeIDs)) + ' scans to measurement sets...')
+        progress = Progress(len(timeIDs), 'Converting scans')
         with multiprocessing.Pool(initializer=setup_worker, initargs=(logfile,)) as pool:
-            results = pool.map(partial(parallel_file_conversion, mydata=mydata), timeIDs)
+            # In the order they finish, to show progress as it happens.
+            for field in pool.imap_unordered(partial(parallel_file_conversion, mydata=mydata), timeIDs):
+                progress.update(field)
 
         final_concat = find_converted_ms(mydata)
 
@@ -130,9 +134,10 @@ def main(argv=None):
             'Combining spectral chunks with CASA',
             outputs=concat_outputs)
 
-        run('aoflagger ' + concat_outputs[-1],
+        run('aoflagger -v ' + concat_outputs[-1],
             os.path.join(logdir, 'aoflagger.log'),
-            'Flagging with aoflagger')
+            'Flagging with aoflagger',
+            line_buffered=True)
 
         if flagants != '':
             fix_scans.fix_scans(mydata + '/master_ms_tmp2.ms')

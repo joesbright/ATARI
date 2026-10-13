@@ -4,8 +4,10 @@ beside the data. External programs (CASA, aoflagger) write to their own log
 files there. Kept free of casacore so it can be tested anywhere."""
 import logging
 import os
+import shutil
 import subprocess
 import sys
+import time
 import warnings
 from pathlib import Path
 
@@ -30,6 +32,10 @@ _handlers = []
 # replaced.
 _seen_warnings = set()
 _previous_showwarning = None
+
+# Whether --verbose was given: detailed messages then go to the terminal, so
+# a progress bar redrawn in place would be broken up.
+_verbose = False
 
 
 class _TerminalFormatter(logging.Formatter):
@@ -88,7 +94,9 @@ def close_logging():
 def setup_logging(logdir, verbose=False):
     """Send ATARI's messages to the terminal and everything to a new log file
     in logdir. Returns the log file's path."""
+    global _verbose
     close_logging()
+    _verbose = verbose
     logdir = Path(logdir)
     logdir.mkdir(parents=True, exist_ok=True)
     logfile = logdir / LOG_NAME
@@ -125,13 +133,59 @@ def setup_worker(logfile):
     _capture_warnings()
 
 
-def run(command, logfile, description, outputs=()):
+def _duration(seconds):
+    if seconds < 60:
+        return str(round(seconds)) + ' s'
+    if seconds < 3600:
+        return str(round(seconds / 60)) + ' min'
+    return str(int(seconds // 3600)) + ' h ' + str(round(seconds % 3600 / 60)) + ' min'
+
+
+class Progress:
+    """Progress through total steps (e.g. scans converted). In a terminal, a
+    bar redrawn in place; otherwise, and in the log file, a line per step."""
+    WIDTH = 20
+
+    def __init__(self, total, description):
+        self.total = total
+        self.description = description
+        self.done = 0
+        self.start = time.monotonic()
+        self.bar = sys.stdout.isatty() and not _verbose
+
+    def update(self, label):
+        self.done += 1
+        line = self.description + ': ' + str(self.done) + '/' + str(self.total) + ' (' + label + ')'
+        if not self.bar:
+            logger.info(line)
+            return
+        logger.debug(line)
+        elapsed = time.monotonic() - self.start
+        filled = self.WIDTH * self.done // self.total
+        text = (self.description + ' [' + '#' * filled + '-' * (self.WIDTH - filled) + '] '
+                + str(self.done) + '/' + str(self.total) + ' (' + str(100 * self.done // self.total) + '%), '
+                + _duration(elapsed))
+        if self.done < self.total:
+            text += ', about ' + _duration(elapsed / self.done * (self.total - self.done)) + ' left'
+        # Pad, so a shorter line fully covers the one before.
+        sys.stdout.write('\r' + text.ljust(100))
+        if self.done == self.total:
+            sys.stdout.write('\n')
+        sys.stdout.flush()
+
+
+def run(command, logfile, description, outputs=(), line_buffered=False):
     """Run a shell command (CASA, aoflagger) with its output going to logfile
     instead of the terminal. Stop with the end of the log if it fails, or if
     any of outputs is missing afterwards: CASA exits normally even when one of
-    its tasks fails."""
-    logger.info(description + '...')
+    its tasks fails. line_buffered makes a program that holds its output back
+    when writing to a file (aoflagger) write each line as it goes, so the log
+    can be followed, using stdbuf where it is installed."""
+    if line_buffered and shutil.which('stdbuf'):
+        command = 'stdbuf -oL -eL ' + command
+    logger.info(description + ' (log: ' + str(logfile) + ')...')
     logger.debug('Running: ' + command)
+    start = time.monotonic()
     # Without uv's VIRTUAL_ENV, which CASA's own Python would warn about.
     env = {name: value for name, value in os.environ.items() if name != 'VIRTUAL_ENV'}
     with open(logfile, 'w') as f:
@@ -141,7 +195,7 @@ def run(command, logfile, description, outputs=()):
     for output in outputs:
         if not os.path.exists(output):
             _fail(description, logfile, str(output) + ' was not made')
-    logger.debug(description + ' finished. Log: ' + str(logfile))
+    logger.info(description + ' done (' + _duration(time.monotonic() - start) + ')')
 
 
 def _fail(description, logfile, reason):

@@ -58,7 +58,7 @@ ATARI will make folders per source and per spectral window in the `data` folder,
 - `atari_setup.log`: all of ATARI's messages with timestamps, plus warnings from the libraries it uses (e.g. pyuvdata);
 - `casa_concat.log`, `aoflagger.log`, `casa_average.log` (uvh5 input) and `casa_flagants.log` (measurement set input with `--flagants`): the full output of each CASA or aoflagger run.
 
-The logs are replaced on each run. If CASA or aoflagger fails, `atari-setup` stops and shows the end of that step's log.
+While the uvh5 files are converted, a progress bar shows how many scans are done and roughly how long is left. Each CASA or aoflagger step shows its log file when it starts and how long it took when it finishes; `tail -f` the log to follow it. The logs are replaced on each run. If CASA or aoflagger fails, `atari-setup` stops and shows the end of that step's log.
 
 # Testing
 ```bash
