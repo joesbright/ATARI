@@ -3,7 +3,7 @@ import numpy as np
 
 
 def fix_scans(myms):
-    with table(myms, readonly=False) as t:
+    with table(myms, readonly=False, ack=False) as t:
         default_field = t.getcol('FIELD_ID')
         default_scans = t.getcol('SCAN_NUMBER')
         scans = default_scans
@@ -22,7 +22,7 @@ def fix_scans(myms):
     return()
 
 def fix_spw(myms):
-    with table(myms + '/SOURCE', readonly=False) as t:
+    with table(myms + '/SOURCE', readonly=False, ack=False) as t:
         default_ids = t.getcol('SPECTRAL_WINDOW_ID')
         new_ids = np.zeros(len(default_ids))
 

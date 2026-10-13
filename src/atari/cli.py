@@ -1,6 +1,7 @@
 """Command-line arguments for atari-setup. Kept free of casacore so it can be
 tested anywhere."""
 import argparse
+import os
 
 
 def parse_args(argv=None):
@@ -11,10 +12,31 @@ def parse_args(argv=None):
     parser.add_argument('--chanbin', type=str, help='number of 0.5 MHz channels to average together', default='8')
     parser.add_argument('--flagants', type=str, help='comma separated list of antennas to flag', default='')
     parser.add_argument('--calibrators', type=str, help='file of extra gain calibrator names, one per line, added to the built-in list', default=None)
+    parser.add_argument('--verbose', action='store_true', help='also show detailed messages in the terminal (they are always in logs/atari_setup.log)')
     args = parser.parse_args(argv)
     # A list of antenna names, empty if none were given.
     args.flagants = [name for name in args.flagants.split(',') if name]
     return args
+
+
+def input_kind(path):
+    # 'ms' for a measurement set, 'uvh5' for a folder of uvh5 recordings,
+    # None for anything else.
+    if path.endswith('.ms') or path.endswith('.ms/'):
+        return 'ms'
+    if os.path.isdir(path):
+        return 'uvh5'
+    return None
+
+
+def output_folder(path, kind):
+    # The folder the per-target folders, DEEP_IMAGE/ and logs/ go in: the
+    # folder holding a measurement set, or the uvh5 folder itself (where
+    # master_ms.ms is made).
+    path = os.path.normpath(path)
+    if kind == 'ms':
+        return os.path.dirname(path) or '.'
+    return path
 
 
 def resolve_refant(refant, ant_names, flagants=()):

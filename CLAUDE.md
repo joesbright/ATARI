@@ -24,13 +24,13 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (71 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 71 run:
+`uv run pytest -rs` (92 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 92 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
 ```
 
-- Need no casacore (run on macOS): `test_calibrators.py`, `test_cli.py`, `test_script_writers.py` (parses the generated CASA script with `ast`, which catches broken quoting), `test_uvh5_files.py`.
+- Need no casacore (run on macOS): `test_calibrators.py`, `test_cli.py`, `test_log.py`, `test_script_writers.py` (parses the generated CASA script with `ast`, which catches broken quoting), `test_uvh5_files.py`.
 - `test_conversion.py`: uvh5 → per-LO MS conversion of the test observation with the locked pyuvdata.
 - `test_pipeline.py`: regression tests. They compare `1GC_.py`/`image_.sh` with `tests/data/expected/` (temp path replaced by `{WORKDIR}`), from two routes:
   - `tests/data/master_ms.ms` (needs casacore only);
@@ -45,7 +45,7 @@ ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
 Flow:
 1. **uvh5 input**:
    - `uvh5_files.find_time_ids` lists each scan once, leaving out skipped fields (below), and a `multiprocessing.Pool` runs `parallel_file_conversion` per time ID. It converts each LO (`LoA`–`LoD`, hard-coded) to MS via `uvh5_files.read_lo` and pyuvdata's `write_ms`, and calls `fix_scans.fix_spw`. An LO with no files in a scan was not recorded and is skipped.
-   - CASA (via generated temp scripts run with `os.system`) concatenates the MSs, listed in sorted order by `uvh5_files.find_converted_ms` so LoA–LoD become spw0–spw3, and optionally drops antennas.
+   - CASA (via generated temp scripts run with `log.run`) concatenates the MSs, listed in sorted order by `uvh5_files.find_converted_ms` so LoA–LoD become spw0–spw3, and optionally drops antennas.
    - aoflagger flags, `fix_scans.fix_scans` renumbers scans, and CASA channel-averages into `<input>/master_ms.ms`.
    - Expected layout: `<dir>/uvh5*<timeID>*0001/Lo?*/*.uvh5`. The time ID comes from fixed `_`-separated positions in the filename; the field name is everything between it and the trailing `_0001`, since it can contain underscores.
 2. **Field classification** (`atari.calibrators.classify_field`):
@@ -60,7 +60,7 @@ Flow:
    - `fgc.image_all_fields` writes three WSClean commands.
 4. **Final steps**: a deep WSClean image over all splits is written to `DEEP_IMAGE/`. `fgc.flag_u0` adds a 99th-percentile amplitude clip to `1GC_.py`.
 
-Layering: `pipeline.py` → `fgc.py` (defines the recipe order; imported as `FGC`) → `write_casa_scripts.py` / `write_wsclean_scripts.py`. These two build CASA task calls and WSClean commands by string concatenation, so check quoting carefully when editing them. `fix_scans.py` edits MS tables in place. `calibrators.py`, `cli.py` and `uvh5_files.py` are kept free of casacore so they can be tested anywhere.
+Layering: `pipeline.py` → `fgc.py` (defines the recipe order; imported as `FGC`) → `write_casa_scripts.py` / `write_wsclean_scripts.py`. These two build CASA task calls and WSClean commands by string concatenation, so check quoting carefully when editing them. `fix_scans.py` edits MS tables in place. `calibrators.py`, `cli.py`, `log.py` and `uvh5_files.py` are kept free of casacore so they can be tested anywhere.
 
 `legacy/` holds code the pipeline does not use and that is not packaged: `uvh5_to_ms.py`, `concat_all_{b,c}.py` (old `seti-node*` layout), `general_functions.py` (needs CASA's `tb`), and `find_phase_calibrator.py` (a one-off that generated `calibrator_names.dat`; it runs code on import).
 
@@ -77,6 +77,6 @@ Known bugs and open questions are GitHub issues (`gh issue list`).
   - a scan whose LO lost a tuning gets its own spectral window in `concat`.
   Filled channels are flagged, but CASA `fluxscale` reports each spw's flux density at the centre of *all* the G1 solve's selected channels, flagged or not (checked on CASA 6.6: LoD reported at 8999.75 MHz, the unflagged centre is 9057.35 MHz). So `pipeline.flagged_everywhere` finds channels flagged in every row of each split, and `write_casa_scripts.channel_selection` leaves them out of the two G1 `gaincal` calls (`spw='3:0~3;12~27'`); other gaincals and spws are unchanged.
   **Never delete `table.lock` files from an MS CASA produced**; use `tests/make_test_ms.py` to make a lock-free copy.
-- `os.system` failures are ignored, so a missing CASA or aoflagger does not stop the run.
+- Logging (`atari/log.py`): use `logger.info` for what the user needs to see in the terminal (steps, calibrator choices, refant) and `logger.debug` for detail; both go to `logs/atari_setup.log` beside the data (`cli.output_folder`), as do other libraries' warnings (`warnings.warn`, logged once each per process with their category and source, since pyuvdata replaces `warnings.formatwarning`). Pool workers write only to the file (`log.setup_worker`). Run external programs with `log.run` (without uv's `VIRTUAL_ENV`, which CASA's IPython warns about), which writes their output to their own file in `logs/` and exits if they fail or (given `outputs=`) leave an expected file missing, since CASA exits normally when a task fails. Open tables with `ack=False`, or casacore prints a line per open.
 - TaQL queries refer to Python variables as `$name` (e.g. `$y`, `$tm`), so linters report those variables as unused. Don't remove them.
 - `.gitignore` anchors `/data/` to the repo root on purpose. An unanchored `data/` would hide `src/atari/data/` and `tests/data/` from git and from the wheel.
