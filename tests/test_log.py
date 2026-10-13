@@ -151,3 +151,73 @@ def test_run_hides_the_virtual_environment(logdir, monkeypatch):
     log.run('echo "VIRTUAL_ENV=[$VIRTUAL_ENV]"', steplog, 'Combining spectral chunks')
 
     assert 'VIRTUAL_ENV=[]' in steplog.read_text()
+
+
+class FakeTerminal:
+    """Stands in for sys.stdout when it is a terminal."""
+    def __init__(self):
+        self.text = ''
+
+    def write(self, text):
+        self.text += text
+
+    def flush(self):
+        pass
+
+    def isatty(self):
+        return True
+
+
+def test_progress_bar_updates_one_terminal_line(logdir, monkeypatch):
+    terminal = FakeTerminal()
+    monkeypatch.setattr('sys.stdout', terminal)
+    logfile = log.setup_logging(logdir)
+    progress = log.Progress(4, 'Converting scans')
+    for name in ['3C48', '0038+416', 'AT2026yeh', '0038+416']:
+        progress.update(name)
+
+    # Redrawn in place with \r, and finished with a new line.
+    assert terminal.text.count('\r') == 4
+    assert '2/4 (50%)' in terminal.text
+    assert '4/4 (100%)' in terminal.text.split('\r')[-1]
+    assert terminal.text.endswith('\n')
+    # The file gets a plain line per step, without the bar.
+    text = logfile.read_text()
+    assert 'Converting scans: 1/4 (3C48)' in text
+    assert '\r' not in text
+
+
+def test_progress_without_a_terminal_prints_a_line_per_step(logdir, capsys):
+    # e.g. output sent to a file with nohup: no \r redrawing.
+    log.setup_logging(logdir)
+    progress = log.Progress(2, 'Converting scans')
+    progress.update('3C48')
+    progress.update('AT2026yeh')
+
+    out = capsys.readouterr().out
+    assert '\r' not in out
+    assert 'Converting scans: 1/2 (3C48)' in out
+    assert 'Converting scans: 2/2 (AT2026yeh)' in out
+
+
+def test_run_shows_where_the_log_is_and_how_long_it_took(logdir, capfd):
+    log.setup_logging(logdir)
+    steplog = logdir / 'aoflagger.log'
+    log.run('true', steplog, 'Flagging with aoflagger')
+
+    out = capfd.readouterr().out
+    assert 'Flagging with aoflagger (log: ' + str(steplog) + ')...' in out
+    assert 'Flagging with aoflagger done (' in out
+
+
+def test_run_can_write_the_log_line_by_line(logdir, monkeypatch):
+    # aoflagger holds its output back when it goes to a file, so its log
+    # looks stalled. stdbuf (coreutils) makes it write each line.
+    monkeypatch.setattr(log.shutil, 'which', lambda name: '/usr/bin/stdbuf')
+    commands = []
+    monkeypatch.setattr(log.subprocess, 'run', lambda command, **kwargs: commands.append(command) or
+                        log.subprocess.CompletedProcess(command, 0))
+    log.setup_logging(logdir)
+    log.run('aoflagger -v obs.ms', logdir / 'aoflagger.log', 'Flagging with aoflagger', line_buffered=True)
+
+    assert commands == ['stdbuf -oL -eL aoflagger -v obs.ms']
