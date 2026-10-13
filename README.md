@@ -46,9 +46,17 @@ If recording nodes dropped out, some LOs can be missing tunings (`LoA.C0544` etc
 | `--flagants <NAMES>` | no | Comma-separated antenna names to remove, e.g. `1a,2b`. For uvh5 input they are dropped from the data; for a measurement set they are flagged. |
 | `--chanbin <N>` | no | Number of 0.5 MHz channels to average together when converting uvh5 input (default `8`). |
 | `--calibrators <FILE>` | no | Extra gain calibrator names, one per line, used alongside the built-in list. |
+| `--verbose` | no | Also show detailed messages in the terminal. They are always written to the log file. |
 
 # Outputs
 ATARI will make folders per source and per spectral window in the `data` folder, which will contain calibration tables, IMAGES, and plots, as well as the calibrated measurement set, for the specific source/spectral window. ATARI will match sources with complex gain calibrators based on the calibrator list and the target position. The assumption is that the closest calibrator to the target is the complex gain calibrator.
+
+## Logs
+`atari-setup` only prints the main steps and decisions (reference antenna, flux and gain calibrators) to the terminal. Everything else goes to a `logs/` folder beside the data (next to the per-source folders):
+- `atari_setup.log`: all of ATARI's messages with timestamps, plus warnings from the libraries it uses (e.g. pyuvdata);
+- `casa_concat.log`, `aoflagger.log`, `casa_average.log` (uvh5 input) and `casa_flagants.log` (measurement set input with `--flagants`): the full output of each CASA or aoflagger run.
+
+The logs are replaced on each run. If CASA or aoflagger fails, `atari-setup` stops and shows the end of that step's log.
 
 # Testing
 ```bash

@@ -1,7 +1,7 @@
 """Command-line parsing for atari-setup. Needs no casacore."""
 import pytest
 
-from atari.cli import parse_args, resolve_refant
+from atari.cli import input_kind, output_folder, parse_args, resolve_refant
 
 
 def test_defaults_are_whole_strings():
@@ -52,3 +52,26 @@ def test_refant_must_be_in_the_measurement_set(refant):
 def test_refant_must_not_be_flagged(refant):
     with pytest.raises(ValueError, match='--flagants'):
         resolve_refant(refant, ANTENNAS, ['2a'])
+
+
+def test_verbose_is_off_by_default():
+    assert parse_args(['data.ms', '--refant', '3']).verbose is False
+    assert parse_args(['data.ms', '--refant', '3', '--verbose']).verbose is True
+
+
+@pytest.mark.parametrize('path, kind', [('/data/obs/master_ms.ms', 'ms'), ('/data/obs/master_ms.ms/', 'ms'),
+                                        ('/data/obs', 'uvh5'), ('/data/obs/', 'uvh5'),
+                                        ('/data/missing', None)])
+def test_input_kind(path, kind, monkeypatch):
+    monkeypatch.setattr('os.path.isdir', lambda p: not p.startswith('/data/missing'))
+    assert input_kind(path) == kind
+
+
+@pytest.mark.parametrize('path, kind, folder', [('/data/obs/master_ms.ms', 'ms', '/data/obs'),
+                                                ('/data/obs/master_ms.ms/', 'ms', '/data/obs'),
+                                                ('master_ms.ms', 'ms', '.'),
+                                                ('/data/obs', 'uvh5', '/data/obs'),
+                                                ('/data/obs/', 'uvh5', '/data/obs')])
+def test_output_folder_is_beside_the_data(path, kind, folder):
+    # Where the target_spwN/, DEEP_IMAGE/ and logs/ folders are written.
+    assert output_folder(path, kind) == folder
