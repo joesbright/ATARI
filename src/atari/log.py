@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 from termcolor import colored
@@ -23,6 +24,12 @@ TAIL_LINES = 20
 # The handlers set up here, so a rerun in the same Python session (e.g. the
 # tests) replaces them instead of adding more.
 _handlers = []
+
+# Other libraries' warnings already logged by this process, so each is logged
+# once rather than once per file read, and the warnings.showwarning they
+# replaced.
+_seen_warnings = set()
+_previous_showwarning = None
 
 
 class _TerminalFormatter(logging.Formatter):
@@ -47,14 +54,35 @@ def _add(target, handler):
     _handlers.append((target, handler))
 
 
+def _log_warning(message, category, filename, lineno, file=None, line=None):
+    # Used as warnings.showwarning, which is what warnings.warn() calls to show
+    # a warning. Not warnings.formatwarning, which pyuvdata replaces with one
+    # that leaves out the category and where the warning came from. One line
+    # per warning.
+    text = (category.__name__ + ': ' + ' '.join(str(message).split())
+            + ' (' + filename.split('site-packages' + os.sep)[-1] + ':' + str(lineno) + ')')
+    if text not in _seen_warnings:
+        _seen_warnings.add(text)
+        logging.getLogger('warnings').warning(text)
+
+
+def _capture_warnings():
+    global _previous_showwarning
+    _seen_warnings.clear()
+    if warnings.showwarning is not _log_warning:
+        _previous_showwarning = warnings.showwarning
+        warnings.showwarning = _log_warning
+
+
 def close_logging():
+    global _previous_showwarning
     for target, handler in _handlers:
         target.removeHandler(handler)
         handler.close()
     _handlers.clear()
-    # Undo captureWarnings, which only takes effect if it is off when
-    # turned on.
-    logging.captureWarnings(False)
+    if _previous_showwarning is not None:
+        warnings.showwarning = _previous_showwarning
+        _previous_showwarning = None
 
 
 def setup_logging(logdir, verbose=False):
@@ -73,7 +101,7 @@ def setup_logging(logdir, verbose=False):
     _add(root, _file_handler(logfile))
     logger.setLevel(logging.DEBUG)
     # warnings.warn(), which pyuvdata uses, becomes a log message.
-    logging.captureWarnings(True)
+    _capture_warnings()
 
     # The terminal only gets ATARI's messages.
     terminal = logging.StreamHandler(sys.stdout)
@@ -91,11 +119,10 @@ def setup_worker(logfile):
         for handler in list(target.handlers):
             target.removeHandler(handler)
     _handlers.clear()
-    logging.captureWarnings(False)
     logging.getLogger().setLevel(logging.INFO)
     _add(logging.getLogger(), _file_handler(logfile))
     logger.setLevel(logging.DEBUG)
-    logging.captureWarnings(True)
+    _capture_warnings()
 
 
 def run(command, logfile, description, outputs=()):
@@ -105,8 +132,10 @@ def run(command, logfile, description, outputs=()):
     its tasks fails."""
     logger.info(description + '...')
     logger.debug('Running: ' + command)
+    # Without uv's VIRTUAL_ENV, which CASA's own Python would warn about.
+    env = {name: value for name, value in os.environ.items() if name != 'VIRTUAL_ENV'}
     with open(logfile, 'w') as f:
-        result = subprocess.run(command, shell=True, stdout=f, stderr=subprocess.STDOUT)
+        result = subprocess.run(command, shell=True, stdout=f, stderr=subprocess.STDOUT, env=env)
     if result.returncode != 0:
         _fail(description, logfile, 'exit status ' + str(result.returncode))
     for output in outputs:

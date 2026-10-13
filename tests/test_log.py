@@ -115,3 +115,39 @@ def test_run_stops_if_the_output_is_missing(logdir, tmp_path, capfd):
         log.run('true', logdir / 'casa_concat.log', 'Combining spectral chunks', outputs=[missing])
 
     assert str(missing) in capfd.readouterr().out
+
+
+def test_repeated_warnings_are_logged_once(logdir):
+    # pyuvdata warns about the old phasing method for every file it reads.
+    logfile = log.setup_logging(logdir)
+    with warnings.catch_warnings():
+        warnings.simplefilter('always')
+        for _ in range(5):
+            warnings.warn('The data are phased-up using the old phase method')
+    warnings.warn('A different warning')
+
+    text = logfile.read_text()
+    assert text.count('phased-up') == 1
+    assert 'A different warning' in text
+
+
+def test_warnings_say_what_and_where(logdir, monkeypatch):
+    # pyuvdata replaces warnings.formatwarning with one that leaves out the
+    # category and where the warning came from.
+    monkeypatch.setattr(warnings, 'formatwarning', lambda message, *args, **kwargs: str(message) + '\n')
+    logfile = log.setup_logging(logdir)
+    warnings.warn('invalid value encountered in power', RuntimeWarning)
+
+    line = [line for line in logfile.read_text().splitlines() if 'power' in line][0]
+    assert 'RuntimeWarning: invalid value encountered in power (' in line
+    assert 'test_log.py:' in line
+
+
+def test_run_hides_the_virtual_environment(logdir, monkeypatch):
+    # uv run sets VIRTUAL_ENV, which CASA's own Python (IPython) warns about.
+    monkeypatch.setenv('VIRTUAL_ENV', '/home/user/ATARI/.venv')
+    log.setup_logging(logdir)
+    steplog = logdir / 'casa_concat.log'
+    log.run('echo "VIRTUAL_ENV=[$VIRTUAL_ENV]"', steplog, 'Combining spectral chunks')
+
+    assert 'VIRTUAL_ENV=[]' in steplog.read_text()

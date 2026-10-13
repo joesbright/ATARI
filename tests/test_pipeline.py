@@ -102,4 +102,6 @@ def test_setup_from_uvh5(tmp_path, monkeypatch, capfd):
     logs = data / 'logs'
     for name in ['atari_setup.log', 'casa_concat.log', 'aoflagger.log', 'casa_average.log']:
         assert (logs / name).stat().st_size > 0, name
-    assert 'phased-up' in (logs / 'atari_setup.log').read_text()
+    # Once per conversion process, not once per file.
+    assert 1 <= (logs / 'atari_setup.log').read_text().count('phased-up') <= os.cpu_count()
+    assert 'virtualenv' not in (logs / 'casa_concat.log').read_text()

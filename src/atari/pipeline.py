@@ -280,7 +280,7 @@ def main(argv=None):
                     imsize = ((sp.constants.c / (spws[x] * 1.e9)) / 6.1) * (180. / sp.constants.pi) * 60. * 60. / cell
                     imsize = int(2. ** (math.ceil(np.log2(imsize)) + 2))
                     g1_spw = channel_selection(x, flagged_everywhere(outfile))
-                    logger.debug(outfile + ': ' + str(nrows) + ' rows, cell ' + str(cell) + ' arcsec, imsize '
+                    logger.debug(outfile + ': ' + str(nrows) + ' rows, cell ' + format(cell, '.2f') + ' arcsec, imsize '
                                  + str(imsize) + ', G1 channels ' + (g1_spw or 'all'))
 
                     FGC.write_comments('1GC_.py', item, x)
