@@ -34,6 +34,8 @@ One can inspect the contents of `1GC_.py` and `image_.sh` to see exactly what th
 
 Note: ATARI relies on a built-in list of calibrator names (`src/atari/data/calibrator_names.dat`) to identify the complex gain calibrator (sometimes called the gain calibrator, or phase calibrator). If your complex gain calibrator is not listed, put its name in a text file, one name per line, and pass it with `--calibrators <FILE>`. It is used alongside the built-in list.
 
+ATARI recognises the flux calibrators 3C286, 3C48 and 3C147 by name, in any capitalisation. If the observation has no flux calibrator, or no gain calibrator it recognises, `atari-setup` stops before converting anything and lists the fields it found.
+
 Scans named `Stay_put` (in any capitalisation) are recorded while the sources are below the horizon, and are skipped completely: they are not converted, calibrated or imaged.
 
 If recording nodes dropped out, some LOs can be missing tunings (`LoA.C0544` etc.), for the whole observation or from partway through. ATARI fills each missing tuning with flagged data at its frequencies, so every LO keeps the same channel layout in every scan. An LO that was not recorded at all is skipped.

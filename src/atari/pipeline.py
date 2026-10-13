@@ -10,10 +10,10 @@ from atari import fgc as FGC
 import scipy as sp
 import math
 from atari import fix_scans
-from atari.calibrators import classify_field
+from atari.calibrators import calibrator_problems, classify_field
 from atari.cli import input_kind, output_folder, parse_args, resolve_refant
 from atari.log import logger, run, setup_logging, setup_worker
-from atari.uvh5_files import find_converted_ms, find_time_ids, read_lo
+from atari.uvh5_files import find_converted_ms, find_fields, find_time_ids, read_lo
 from atari.write_casa_scripts import channel_selection, write_flag_antennas
 import glob
 from functools import partial
@@ -67,6 +67,16 @@ def parallel_file_conversion(timeID, mydata):
     return None
 
 
+def check_fields(names, extra_calibrators):
+    # Stop if calibration is impossible, before any slow steps.
+    problems = calibrator_problems(names, extra_calibrators)
+    if problems:
+        for problem in problems:
+            logger.error(problem)
+        logger.info('Fields found: ' + ', '.join(names))
+        sys.exit(1)
+
+
 def main(argv=None):
     args = parse_args(argv)
 
@@ -92,6 +102,7 @@ def main(argv=None):
     if input_type == 'uvh5':
         logger.info('Starting with folder: ' + mydata)
         # CONVERT TO MEASUREMENT SET FIRST
+        check_fields(find_fields(mydata), args.calibrators)
         timeIDs = find_time_ids(mydata)
 
         logger.info('Converting ' + str(len(timeIDs)) + ' scans to measurement sets...')
@@ -193,6 +204,7 @@ def main(argv=None):
         field_ras = t.getcol('DELAY_DIR').squeeze()
         field_decs = t.getcol('DELAY_DIR').squeeze()
     fields = dict(zip(field_ids, field_names))
+    check_fields([name for name in field_names if classify_field(name) != 'SKIP'], args.calibrators)
     field_ras = dict(zip(field_ids, field_ras))
     field_decs = dict(zip(field_ids, field_decs))
     with table(myms, ack=False) as t:

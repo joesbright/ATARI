@@ -17,6 +17,18 @@ def test_find_time_ids_lists_each_scan_once():
         '61317_11988_5522216', '61317_13265_5561187', '61317_13928_5581420']
 
 
+def test_find_fields_lists_each_field_once():
+    assert uvh5_files.find_fields(str(UVH5)) == ['0038+416', '3c48', 'AT2026yeh']
+
+
+def test_find_fields_leaves_out_skipped_fields(tmp_path):
+    for name in ['uvh5_61325_18726_8491394_3C48_0001', 'uvh5_61325_19000_8500000_Stay_put_0001']:
+        tuning = tmp_path / name / 'LoC.C0352'
+        tuning.mkdir(parents=True)
+        (tuning / (name + '.uvh5')).touch()
+    assert uvh5_files.find_fields(str(tmp_path)) == ['3C48']
+
+
 def test_converted_ms_are_listed_in_a_fixed_order(tmp_path, monkeypatch):
     # CASA concat numbers spectral windows in the order it receives the LOs
     # of each scan, so the order must not depend on how the filesystem lists
