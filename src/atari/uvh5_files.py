@@ -13,21 +13,30 @@ from atari.calibrators import skip_field
 TUNINGS = ['C0352', 'C0544', 'C0736', 'C0928', 'C1120', 'C1312', 'C1504']
 
 
+def _scans(mydata):
+    # (time ID, field name) of each LoC file's scan, leaving out skipped
+    # fields.
+    for file in glob.glob(mydata + '/uvh5*/LoC*/' + '*.uvh5'):
+        parts = file.split('/')[-1].split('_')
+        # The field name can contain underscores (Stay_put), so it is
+        # everything between the time ID and the trailing _0001.
+        field = '_'.join(parts[4:-1])
+        if not skip_field(field):
+            yield parts[1] + '_' + parts[2] + '_' + parts[3], field
+
+
 def find_time_ids(mydata):
     # Each scan has several LoC tuning folders, so the time ID must be
     # collected once per scan, not once per file. Duplicates made the
     # conversion pool convert the same scan in several workers at once, which
     # fails when the second worker finds the first one's MS already written.
-    timeIDs = set()
-    for file in glob.glob(mydata + '/uvh5*/LoC*/' + '*.uvh5'):
-        parts = file.split('/')[-1].split('_')
-        # The field name can contain underscores (Stay_put), so it is
-        # everything between the time ID and the trailing _0001.
-        if skip_field('_'.join(parts[4:-1])):
-            continue
-        timeIDs.add(parts[1] + '_' + parts[2] + '_' + parts[3])
+    return sorted({timeID for timeID, field in _scans(mydata)})
 
-    return sorted(timeIDs)
+
+def find_fields(mydata):
+    # The observed fields, from the file names, so they can be checked
+    # before the slow conversion.
+    return sorted({field for timeID, field in _scans(mydata)})
 
 
 def find_converted_ms(mydata):

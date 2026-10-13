@@ -1,6 +1,6 @@
 import pytest
 
-from atari.calibrators import classify_field, match_calibrators
+from atari.calibrators import calibrator_problems, classify_field, match_calibrators
 
 
 def test_known_gain_calibrator_is_matched():
@@ -39,3 +39,35 @@ def test_stay_put_is_skipped(name):
 
 def test_only_the_exact_stay_put_name_is_skipped():
     assert classify_field('Stay_put_field') == 'TARGET'
+
+
+@pytest.mark.parametrize('name', ['3c48', '3C48', '3c286', '3C286', '3c147', '3C147'])
+def test_flux_calibrators_are_matched_in_any_case(name):
+    # The p060 2026-10-11 observation names its flux calibrator 3C48.
+    assert classify_field(name) == 'FLUX_CAL'
+
+
+def test_only_exact_flux_calibrator_names_are_matched():
+    assert classify_field('3C48_offset') != 'FLUX_CAL'
+
+
+def test_no_problems_with_flux_and_gain_calibrators():
+    assert calibrator_problems(['3C48', '0038+416', 'AT2026yeh']) == []
+
+
+def test_missing_flux_calibrator_is_a_problem():
+    problems = calibrator_problems(['0038+416', 'AT2026yeh'])
+    assert len(problems) == 1
+    assert 'flux calibrator' in problems[0]
+
+
+def test_missing_gain_calibrator_is_a_problem():
+    problems = calibrator_problems(['3c48', 'AT2026yeh'])
+    assert len(problems) == 1
+    assert '--calibrators' in problems[0]
+
+
+def test_gain_calibrator_from_extra_file_counts(tmp_path):
+    extra = tmp_path / 'my_calibrators.dat'
+    extra.write_text('my_gaincal\n')
+    assert calibrator_problems(['3c48', 'my_gaincal', 'AT2026yeh'], str(extra)) == []

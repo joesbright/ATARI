@@ -105,3 +105,21 @@ def test_setup_from_uvh5(tmp_path, monkeypatch, capfd):
     # Once per conversion process, not once per file.
     assert 1 <= (logs / 'atari_setup.log').read_text().count('phased-up') <= os.cpu_count()
     assert 'virtualenv' not in (logs / 'casa_concat.log').read_text()
+
+
+def test_missing_flux_calibrator_stops_before_conversion(tmp_path, monkeypatch, capfd):
+    # Found from the file names, so the slow conversion isn't run for nothing.
+    data = tmp_path / 'uvh5'
+    for name in ['uvh5_61325_20007_8530487_0038+416_0001', 'uvh5_61325_20679_8550994_AT2026yeh_0001']:
+        tuning = data / name / 'LoC.C0352'
+        tuning.mkdir(parents=True)
+        (tuning / (name + '.uvh5')).touch()  # empty: reading it would fail
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit):
+        main([str(data), '--refant', '3'])
+
+    out = capfd.readouterr().out
+    assert 'No flux calibrator' in out
+    assert 'Fields found: 0038+416, AT2026yeh' in out
+    assert not list(data.glob('*.ms'))
