@@ -11,11 +11,11 @@ ATARI (Allen Telescope Array Radio Imaging) is research code that calibrates and
 ```bash
 uv sync              # once; installs ATARI in editable mode
 uv run atari-setup <PATH_TO_MS_OR_UVH5_FOLDER> --refant <name_or_index> [--casapath <casa>] [--chanbin 8] [--flagants ant1,ant2] [--calibrators extra.dat]
-casa -c 1GC_.py      # first-generation calibration
-. image_.sh          # WSClean imaging
+casa -c <OUT>/1GC_.py      # first-generation calibration
+. <OUT>/image_.sh          # WSClean imaging
 ```
 
-`1GC_.py` and `image_.sh` are written to the current folder. `ATARI/01_setup.py` is a thin wrapper that calls `atari.pipeline.main` for the old usage. On the ATA compute nodes, symlink the data folder and pass the symlink; `--casapath` is needed there.
+`1GC_.py` and `image_.sh` are written to `<OUT>` = `cli.output_folder`: the folder holding an input MS, or the uvh5 folder itself, beside `logs/` and the per-target folders. Nothing is written to the current folder. The input path is made absolute first, so the scripts work from any folder. `ATARI/01_setup.py` is a thin wrapper that calls `atari.pipeline.main` for the old usage. On the ATA compute nodes, symlink the data folder and pass the symlink; `--casapath` is needed there.
 
 Dependencies:
 - **Python ≥3.10**, declared in `pyproject.toml` and locked in `uv.lock`: numpy, scipy, astropy, pyuvdata (must accept `fix_old_proj=`), python-casacore, termcolor. pytest is in the `dev` dependency group.
@@ -24,7 +24,7 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (113 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 113 run:
+`uv run pytest -rs` (116 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 116 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
@@ -40,7 +40,7 @@ ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
 
 ## Architecture
 
-`atari/pipeline.py` `main()` mostly **writes scripts rather than running calibration**: it inspects the MS with `casacore.tables` and appends text to `1GC_.py` (CASA) and `image_.sh` (WSClean) in the current folder. It deletes those files at startup.
+`atari/pipeline.py` `main()` mostly **writes scripts rather than running calibration**: it inspects the MS with `casacore.tables` and appends text to `1GC_.py` (CASA) and `image_.sh` (WSClean) in the output folder. If either already exists there (an earlier run), it stops at startup rather than delete them. Its temporary CASA scripts (`concat_command.py`, `avg_command.py`, `flag_command.py`) also go in the output folder, and CASA runs with `logs/` as its working folder (`log.run(cwd=)`), so its `<task>.last` files land there.
 
 Flow:
 1. **uvh5 input**:

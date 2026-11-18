@@ -81,7 +81,9 @@ def check_fields(names, extra_calibrators):
 def main(argv=None):
     args = parse_args(argv)
 
-    mydata = args.msname[0]
+    # Absolute, because the generated scripts and CASA are run from other
+    # folders. abspath keeps symlinks (e.g. a run's obs/ links) as they are.
+    mydata = os.path.abspath(args.msname[0])
     casapath = args.casapath
     chanbin = args.chanbin
     flagants = args.flagants
@@ -89,14 +91,31 @@ def main(argv=None):
     input_type = input_kind(mydata)
     if input_type is None:
         sys.exit('Error: ' + mydata + ' is neither a measurement set (.ms) nor a folder of uvh5 files.')
-    logdir = os.path.join(output_folder(mydata, input_type), 'logs')
+    # Everything ATARI writes goes in this folder, beside the data, so the
+    # folder atari-setup is run from is never touched.
+    outdir = output_folder(mydata, input_type)
+    logdir = os.path.join(outdir, 'logs')
     logfile = setup_logging(logdir, args.verbose)
     logger.info('Log: ' + str(logfile))
     logger.debug('Working from ' + os.getcwd())
     logger.debug('Arguments: ' + str(vars(args)))
 
-    # clean up previous run
-    remove('1GC_.py', 'image_.sh', 'avg_command.py', 'concat_command.py', 'concat_avg_commands.py')
+    gc_script = os.path.join(outdir, '1GC_.py')
+    image_script = os.path.join(outdir, 'image_.sh')
+    concat_script = os.path.join(outdir, 'concat_command.py')
+    avg_script = os.path.join(outdir, 'avg_command.py')
+    flag_script = os.path.join(outdir, 'flag_command.py')
+
+    # Scripts already here belong to an earlier run, whose split folders
+    # would make this one fail later anyway: stop now rather than delete them.
+    for script in [gc_script, image_script]:
+        if os.path.exists(script):
+            logger.error(outdir + ' already contains ' + os.path.basename(script) + ' from an earlier run. '
+                         'Use a new folder, or delete the earlier outputs.')
+            sys.exit(1)
+
+    # Temporary scripts a crashed run may have left.
+    remove(concat_script, avg_script, flag_script)
 
     # different file managing depending on input, but we want to end up with a measurement set
     # with a consistent file structure.
@@ -120,7 +139,7 @@ def main(argv=None):
 
         flagants = antenna_ids(ant_names, flagants)
 
-        f = open('concat_command.py', 'w')
+        f = open(concat_script, 'w')
         f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
         if flagants != '':
             f.write('\n')
@@ -129,10 +148,10 @@ def main(argv=None):
         concat_outputs = [mydata + '/master_ms_tmp.ms']
         if flagants != '':
             concat_outputs.append(mydata + '/master_ms_tmp2.ms')
-        run(casapath + ' --nologger --log2term --nologfile -c concat_command.py',
+        run(casapath + ' --nologger --log2term --nologfile -c ' + concat_script,
             os.path.join(logdir, 'casa_concat.log'),
             'Combining spectral chunks with CASA',
-            outputs=concat_outputs)
+            outputs=concat_outputs, cwd=logdir)
 
         run('aoflagger -v ' + concat_outputs[-1],
             os.path.join(logdir, 'aoflagger.log'),
@@ -144,19 +163,19 @@ def main(argv=None):
         else:
             fix_scans.fix_scans(mydata + '/master_ms_tmp.ms')
 
-        f = open('avg_command.py', 'w')
+        f = open(avg_script, 'w')
         if flagants != '':
             f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp2.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
         else:
             f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
         f.close()
 
-        run(casapath + ' --nologger --log2term --nologfile -c avg_command.py',
+        run(casapath + ' --nologger --log2term --nologfile -c ' + avg_script,
             os.path.join(logdir, 'casa_average.log'),
             'Averaging channels with CASA',
-            outputs=[mydata + '/master_ms.ms'])
+            outputs=[mydata + '/master_ms.ms'], cwd=logdir)
         remove(mydata + '/master_ms_tmp.ms', mydata + '/master_ms_tmp2.ms',
-               'avg_command.py', 'concat_command.py', 'concat_avg_commands.py')
+               avg_script, concat_script)
 
         mydata = mydata + '/master_ms.ms'
 
@@ -169,12 +188,12 @@ def main(argv=None):
 
         if flagants != '':
             # write_flag_antennas appends, so start from an empty file.
-            remove('flag_command.py')
-            write_flag_antennas(mydata, flagants, 'flag_command.py')
-            run(casapath + ' --nologger --log2term --nologfile -c flag_command.py',
+            remove(flag_script)
+            write_flag_antennas(mydata, flagants, flag_script)
+            run(casapath + ' --nologger --log2term --nologfile -c ' + flag_script,
                 os.path.join(logdir, 'casa_flagants.log'),
-                'Flagging antennas ' + ','.join(args.flagants) + ' with CASA')
-            remove('flag_command.py')
+                'Flagging antennas ' + ','.join(args.flagants) + ' with CASA', cwd=logdir)
+            remove(flag_script)
 
     myms = mydata
 
@@ -264,7 +283,7 @@ def main(argv=None):
 
     field_matching = dict(zip(np.asarray(ordered_target_fields), np.asarray(ordered_pcal_fields)))
 
-    FGC.write_dependencies('1GC_.py')
+    FGC.write_dependencies(gc_script)
 
     vislist = []
     for key in fields:
@@ -300,14 +319,14 @@ def main(argv=None):
                     logger.debug(outfile + ': ' + str(nrows) + ' rows, cell ' + format(cell, '.2f') + ' arcsec, imsize '
                                  + str(imsize) + ', G1 channels ' + (g1_spw or 'all'))
 
-                    FGC.write_comments('1GC_.py', item, x)
+                    FGC.write_comments(gc_script, item, x)
 
                     FGC.first_generation_calibration(outfile,
                                                      item,
                                                      fcal_name,
                                                      fields[field_matching[item]][0],
                                                      refant,
-                                                     '1GC_.py',
+                                                     gc_script,
                                                      newdir + 'CALIBRATION_TABLES/',
                                                      g1_spw=g1_spw)
 
@@ -318,7 +337,7 @@ def main(argv=None):
                                          item,
                                          fcal_name,
                                          fields[field_matching[item]][0],
-                                         'image_.sh',
+                                         image_script,
                                          imsize,
                                          cell,
                                          newdir + 'IMAGES/')
@@ -332,7 +351,7 @@ def main(argv=None):
     FGC.deep_image(
         vislist,
         target_field_id,
-        'image_.sh',
+        image_script,
         imsize,
         cell,
         deep_dir,
@@ -340,9 +359,9 @@ def main(argv=None):
 
     FGC.flag_u0(
         vislist,
-        '1GC_.py')
+        gc_script)
 
-    logger.info('Wrote 1GC_.py and image_.sh in ' + os.getcwd() + '. Next: casa -c 1GC_.py, then . image_.sh')
+    logger.info('Wrote 1GC_.py and image_.sh in ' + outdir + '. Next: casa -c ' + gc_script + ', then . ' + image_script)
 
 
 if __name__ == '__main__':
