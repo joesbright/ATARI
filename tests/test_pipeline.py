@@ -64,6 +64,59 @@ def test_setup_from_measurement_set(tmp_path, monkeypatch):
 
 
 @pytest.mark.skipif(not TEST_MS.exists(), reason='tests/data/master_ms.ms is missing')
+def test_scripts_are_written_beside_the_data(tmp_path, monkeypatch):
+    # Each dataset keeps its own scripts, next to logs/ and the per-target
+    # folders, and the folder atari-setup is run from is left alone (here it
+    # holds another dataset's script, which must survive).
+    data = tmp_path / 'data'
+    data.mkdir()
+    ms = data / TEST_MS.name
+    shutil.copytree(TEST_MS, ms)
+    elsewhere = tmp_path / 'elsewhere'
+    elsewhere.mkdir()
+    (elsewhere / '1GC_.py').write_text('# another dataset\n')
+    monkeypatch.chdir(elsewhere)
+
+    main([str(ms), '--casapath', 'casa', '--refant', '3'])
+
+    check_outputs(data, data)
+    assert [p.name for p in elsewhere.iterdir()] == ['1GC_.py']
+    assert (elsewhere / '1GC_.py').read_text() == '# another dataset\n'
+
+
+@pytest.mark.skipif(not TEST_MS.exists(), reason='tests/data/master_ms.ms is missing')
+def test_relative_data_path_gives_absolute_paths_in_scripts(tmp_path, monkeypatch):
+    # The scripts are run from other folders than the one they are in, so
+    # they need absolute paths even when atari-setup was given a relative one.
+    data = tmp_path / 'data'
+    data.mkdir()
+    shutil.copytree(TEST_MS, data / TEST_MS.name)
+    monkeypatch.chdir(tmp_path)
+
+    main(['data/' + TEST_MS.name, '--casapath', 'casa', '--refant', '3'])
+
+    check_outputs(data, data)
+
+
+@pytest.mark.skipif(not TEST_MS.exists(), reason='tests/data/master_ms.ms is missing')
+def test_existing_scripts_stop_the_run(tmp_path, monkeypatch, capfd):
+    # A folder that already holds scripts holds an earlier run: stop before
+    # doing anything, rather than delete its scripts.
+    ms = tmp_path / TEST_MS.name
+    shutil.copytree(TEST_MS, ms)
+    (tmp_path / 'image_.sh').write_text('# earlier run\n')
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit):
+        main([str(ms), '--casapath', 'casa', '--refant', '3'])
+
+    assert 'already contains image_.sh' in capfd.readouterr().out
+    assert (tmp_path / 'image_.sh').read_text() == '# earlier run\n'
+    assert not (tmp_path / '1GC_.py').exists()
+    assert not (tmp_path / 'DEEP_IMAGE').exists()
+
+
+@pytest.mark.skipif(not TEST_MS.exists(), reason='tests/data/master_ms.ms is missing')
 def test_terminal_shows_key_information_only(tmp_path, monkeypatch, capfd):
     ms = tmp_path / TEST_MS.name
     shutil.copytree(TEST_MS, ms)
@@ -92,7 +145,10 @@ def test_setup_from_uvh5(tmp_path, monkeypatch, capfd):
 
     main([str(data), '--casapath', CASA, '--refant', '3'])
 
-    check_outputs(tmp_path, data)
+    # Beside master_ms.ms, inside the uvh5 folder; nothing in the folder
+    # atari-setup was run from.
+    check_outputs(data, data)
+    assert [p.name for p in tmp_path.iterdir()] == ['uvh5']
 
     # CASA, aoflagger and pyuvdata write to log files, not the terminal.
     captured = capfd.readouterr()
@@ -105,6 +161,9 @@ def test_setup_from_uvh5(tmp_path, monkeypatch, capfd):
     # Once per conversion process, not once per file.
     assert 1 <= (logs / 'atari_setup.log').read_text().count('phased-up') <= os.cpu_count()
     assert 'virtualenv' not in (logs / 'casa_concat.log').read_text()
+    # CASA runs in logs/, so its <task>.last files land there.
+    assert (logs / 'concat.last').exists()
+    assert (logs / 'mstransform.last').exists()
 
 
 def test_missing_flux_calibrator_stops_before_conversion(tmp_path, monkeypatch, capfd):

@@ -174,13 +174,14 @@ class Progress:
         sys.stdout.flush()
 
 
-def run(command, logfile, description, outputs=(), line_buffered=False):
+def run(command, logfile, description, outputs=(), line_buffered=False, cwd=None):
     """Run a shell command (CASA, aoflagger) with its output going to logfile
     instead of the terminal. Stop with the end of the log if it fails, or if
     any of outputs is missing afterwards: CASA exits normally even when one of
     its tasks fails. line_buffered makes a program that holds its output back
     when writing to a file (aoflagger) write each line as it goes, so the log
-    can be followed, using stdbuf where it is installed."""
+    can be followed, using stdbuf where it is installed. cwd is the folder to
+    run it in: CASA leaves a <task>.last file there for each task it runs."""
     if line_buffered and shutil.which('stdbuf'):
         command = 'stdbuf -oL -eL ' + command
     logger.info(description + ' (log: ' + str(logfile) + ')...')
@@ -189,7 +190,7 @@ def run(command, logfile, description, outputs=(), line_buffered=False):
     # Without uv's VIRTUAL_ENV, which CASA's own Python would warn about.
     env = {name: value for name, value in os.environ.items() if name != 'VIRTUAL_ENV'}
     with open(logfile, 'w') as f:
-        result = subprocess.run(command, shell=True, stdout=f, stderr=subprocess.STDOUT, env=env)
+        result = subprocess.run(command, shell=True, stdout=f, stderr=subprocess.STDOUT, env=env, cwd=cwd)
     if result.returncode != 0:
         _fail(description, logfile, 'exit status ' + str(result.returncode))
     for output in outputs:
