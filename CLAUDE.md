@@ -24,7 +24,7 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (120 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 120 run:
+`uv run pytest -rs` (121 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 121 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
@@ -45,8 +45,8 @@ ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
 Flow:
 1. **uvh5 input**:
    - `uvh5_files.find_time_ids` lists each scan once, leaving out skipped fields (below), and a `multiprocessing.Pool` runs `parallel_file_conversion` per time ID. It converts each LO (`LoA`–`LoD`, hard-coded) to MS via `uvh5_files.read_lo` and pyuvdata's `write_ms`, and calls `fix_scans.fix_spw`. An LO with no files in a scan was not recorded and is skipped.
-   - CASA (via generated temp scripts run with `log.run`) concatenates the MSs, listed in sorted order by `uvh5_files.find_converted_ms` (which matches only `uvh5_*_Lo?.ms`) so LoA–LoD become spw0–spw3, and optionally drops antennas. Once concat has succeeded, the converted per-scan, per-LO MSs are deleted.
-   - aoflagger flags, `fix_scans.fix_scans` renumbers scans, and CASA channel-averages into `<input>/<MJD>_<targets>.ms` (`uvh5_files.final_ms_name`: the first scan's MJD, all targets sorted and joined with `_`, e.g. `61294_AT2026yeh.ms`). `tests/data/master_ms.ms` keeps its old name: it is only an input to the MS-route tests.
+   - CASA (via generated temp scripts run with `log.run`) concatenates the MSs, listed in sorted order by `uvh5_files.find_converted_ms` (which matches only `uvh5_*_Lo?.ms`) so LoA–LoD become spw0–spw3, and optionally drops antennas. Once concat has succeeded, the converted per-scan, per-LO MSs are deleted, and `fix_scans.flag_zero_visibilities` flags every sample that is exactly zero (before aoflagger and the averaging, so zeros are never averaged with real data).
+   - aoflagger flags, `fix_scans.fix_scans` renumbers scans, and CASA channel-averages into `<input>/<MJD>_<targets>.ms`, whose zeros are flagged once more (a few, ~0.01%, are left unflagged after aoflagger and the averaging) (`uvh5_files.final_ms_name`: the first scan's MJD, all targets sorted and joined with `_`, e.g. `61294_AT2026yeh.ms`). `tests/data/master_ms.ms` keeps its old name: it is only an input to the MS-route tests.
    - Expected layout: `<dir>/uvh5*<timeID>*0001/Lo?*/*.uvh5`. The time ID comes from fixed `_`-separated positions in the filename; the field name is everything between it and the trailing `_0001`, since it can contain underscores.
 2. **Field classification** (`atari.calibrators.classify_field`):
    - `Stay_put` (any case; `SKIP_FIELDS`) → skipped completely. These scans are recorded while the sources are below the horizon.
@@ -55,6 +55,7 @@ Flow:
    - Anything else → target.
    - Each target is paired with its nearest gain calibrator.
    - `pipeline.check_fields` stops with an error if there is no flux or no gain calibrator. For uvh5 input it runs on the field names in the file names (`uvh5_files.find_fields`), before the conversion.
+   - MS input: exact zeros are flagged in the given MS at the start (`pipeline.flag_zeros`).
    - `--refant` (required) is looked up in the final MS's ANTENNA table by `cli.resolve_refant`: all digits → index, otherwise name. CASA always gets the index.
 3. **Per target and SPW**: a TaQL query splits out `<target>_spwN/<target>_spwN.ms`, containing the target, its gain calibrator and the flux calibrator, with `IMAGES/`, `CALIBRATION_TABLES/` and `PLOTS/` subfolders. These are written beside the input; `os.mkdir` fails on a re-run if they already exist. For each split:
    - `fgc.first_generation_calibration` writes the CASA recipe: tfcrop/rflag → setjy → G0 → K0 → B0 → G1 → fluxscale → applycal.
@@ -69,6 +70,7 @@ Layering: `pipeline.py` → `fgc.py` (defines the recipe order; imported as `FGC
 
 Known bugs and open questions are GitHub issues (`gh issue list`).
 
+- Dead antennas, feeds and LOs are recorded as exact zeros without being flagged (37.6% of all samples on 2026-09-18 p060, mostly unflagged; neither aoflagger nor CASA's flagging caught them). ATARI flags them itself (see Flow); `test_pipeline.assert_no_unflagged_zeros` checks that none reach the per-target splits.
 - Hard-coded assumptions:
   - `STATE/OBS_MODE` is overwritten with exactly 5 rows (a no-op: CASA's concat output has no STATE rows).
   - The u=0 clip assumes field IDs 0–2.

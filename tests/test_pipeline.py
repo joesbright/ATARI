@@ -24,6 +24,8 @@ import pytest
 
 pytest.importorskip('casacore', reason='python-casacore is not installed')
 
+from casacore.tables import table  # noqa: E402  (needs casacore)
+
 from atari.pipeline import main  # noqa: E402  (needs casacore)
 
 DATA = Path(__file__).parent / 'data'
@@ -50,6 +52,17 @@ def check_outputs(workdir, datadir):
         assert actual == (EXPECTED / name).read_text(), name
 
 
+def assert_no_unflagged_zeros(folder):
+    # Dead antennas, feeds and LOs are recorded as exact zeros; they must be
+    # flagged before calibration, or they count as measurements.
+    splits = sorted(folder.glob('*_spw[0-9]/*_spw[0-9].ms'))
+    assert splits
+    for split in splits:
+        with table(str(split), ack=False) as t:
+            unflagged_zeros = ((t.getcol('DATA') == 0) & ~t.getcol('FLAG')).sum()
+        assert unflagged_zeros == 0, split.name
+
+
 @pytest.mark.skipif(not TEST_MS.exists(), reason='tests/data/master_ms.ms is missing')
 def test_setup_from_measurement_set(tmp_path, monkeypatch):
     # The pipeline edits the measurement set and writes folders beside it,
@@ -61,6 +74,7 @@ def test_setup_from_measurement_set(tmp_path, monkeypatch):
     main([str(ms), '--casapath', 'casa', '--refant', '3'])
 
     check_outputs(tmp_path, tmp_path)
+    assert_no_unflagged_zeros(tmp_path)
 
 
 @pytest.mark.skipif(not TEST_MS.exists(), reason='tests/data/master_ms.ms is missing')
@@ -145,9 +159,10 @@ def test_setup_from_uvh5(tmp_path, monkeypatch, capfd):
 
     main([str(data), '--casapath', CASA, '--refant', '3'])
 
-    # Beside master_ms.ms, inside the uvh5 folder; nothing in the folder
+    # Beside the combined MS, inside the uvh5 folder; nothing in the folder
     # atari-setup was run from.
     check_outputs(data, data)
+    assert_no_unflagged_zeros(data)
     assert [p.name for p in tmp_path.iterdir()] == ['uvh5']
 
     # CASA, aoflagger and pyuvdata write to log files, not the terminal.
