@@ -2,6 +2,26 @@ from casacore.tables import table
 import numpy as np
 
 
+def flag_zero_visibilities(myms):
+    # Flag every sample whose DATA is exactly zero, keeping existing flags,
+    # and return the fraction of samples newly flagged. Dead antennas, feeds
+    # and LOs are recorded as zeros without being flagged; calibration and
+    # imaging would otherwise treat them as measurements. Read in chunks of
+    # rows, since DATA for a full observation is large.
+    newly = total = 0
+    with table(myms, readonly=False, ack=False) as t:
+        step = 50000
+        for start in range(0, t.nrows(), step):
+            data = t.getcol('DATA', startrow=start, nrow=step)
+            flag = t.getcol('FLAG', startrow=start, nrow=step)
+            zero = (data == 0) & ~flag
+            newly += zero.sum()
+            total += flag.size
+            if zero.any():
+                t.putcol('FLAG', flag | zero, startrow=start, nrow=step)
+    return newly / total if total else 0.0
+
+
 def fix_scans(myms):
     with table(myms, readonly=False, ack=False) as t:
         default_field = t.getcol('FIELD_ID')

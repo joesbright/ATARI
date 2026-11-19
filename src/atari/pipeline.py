@@ -29,6 +29,12 @@ def remove(*paths):
             os.remove(path)
 
 
+def flag_zeros(ms):
+    fraction = fix_scans.flag_zero_visibilities(ms)
+    logger.info('Flagged ' + format(100 * fraction, '.1f') + '% of the data, which was exactly zero '
+                '(dead antennas, feeds or LOs)')
+
+
 def antenna_ids(ant_names, flagants):
     # The row numbers of the named antennas, as CASA's antenna selection
     # expects, e.g. '0,5'. Empty if none of them are in the MS.
@@ -161,6 +167,10 @@ def main(argv=None):
         remove(*final_concat)
         logger.debug('Deleted the ' + str(len(final_concat)) + ' converted measurement sets')
 
+        # Before aoflagger and the channel averaging, so zeros are never
+        # averaged together with real data.
+        flag_zeros(concat_outputs[-1])
+
         run('aoflagger -v ' + concat_outputs[-1],
             os.path.join(logdir, 'aoflagger.log'),
             'Flagging with aoflagger',
@@ -185,11 +195,17 @@ def main(argv=None):
         remove(mydata + '/master_ms_tmp.ms', mydata + '/master_ms_tmp2.ms',
                avg_script, concat_script)
 
+        # A few zeros can be left unflagged after aoflagger and the
+        # averaging (11 of 85,000 samples in the test data), so check again.
+        fraction = fix_scans.flag_zero_visibilities(final_ms)
+        logger.debug('Flagged ' + format(100 * fraction, '.3f') + '% more of the data, exactly zero after averaging')
+
         mydata = final_ms
         logger.info('Combined measurement set: ' + final_ms)
 
     else:
         logger.info('Starting with measurement set: ' + mydata)
+        flag_zeros(mydata)
         with table(mydata + '/ANTENNA/', ack=False) as t:
             ant_names = t.getcol('NAME')
 
