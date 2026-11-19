@@ -24,7 +24,7 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (116 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 116 run:
+`uv run pytest -rs` (120 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 120 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
@@ -36,7 +36,7 @@ ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
   - `tests/data/master_ms.ms` (needs casacore only);
   - `tests/data/uvh5/` (also needs CASA and aoflagger; `ATARI_CASAPATH` if casa is an alias).
 - Test data: `tests/data/uvh5/` is three scans of p060 2026-10-04 (3c48, 0038+416, AT2026yeh), cut with `tests/make_test_data.py` (h5py, so the raw files' old uvh5 layout is kept). LoD has only 5 tunings because recording nodes dropped; that is deliberate and realistic. Each tuning is cut to its middle 32 channels, so the test LOs have gaps between tunings (real tunings have 192 channels and abut).
-- Changing expected outputs (only for intended behaviour changes): on a node, run the uvh5 test with `ATARI_UPDATE_EXPECTED=1 ... --basetemp=/tmp/atari_regen`, clean its `master_ms.ms` (`/tmp/atari_regen/test_setup_from_uvh50/uvh5/master_ms.ms`) with `tests/make_test_ms.py`, copy both back (the nodes can't push to GitHub, so `scp` them to a machine that can), and check the old → new diff is exactly the intended change before committing.
+- Changing expected outputs (only for intended behaviour changes): on a node, run the uvh5 test with `ATARI_UPDATE_EXPECTED=1 ... --basetemp=/tmp/atari_regen`, clean its combined MS (`/tmp/atari_regen/test_setup_from_uvh50/uvh5/61317_AT2026yeh.ms`) with `tests/make_test_ms.py` into `tests/data/master_ms.ms`, copy the expected scripts into `tests/data/expected/` (a node with SSH agent forwarding can commit and push them directly), and check the old → new diff is exactly the intended change before committing.
 
 ## Architecture
 
@@ -45,8 +45,8 @@ ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
 Flow:
 1. **uvh5 input**:
    - `uvh5_files.find_time_ids` lists each scan once, leaving out skipped fields (below), and a `multiprocessing.Pool` runs `parallel_file_conversion` per time ID. It converts each LO (`LoA`–`LoD`, hard-coded) to MS via `uvh5_files.read_lo` and pyuvdata's `write_ms`, and calls `fix_scans.fix_spw`. An LO with no files in a scan was not recorded and is skipped.
-   - CASA (via generated temp scripts run with `log.run`) concatenates the MSs, listed in sorted order by `uvh5_files.find_converted_ms` so LoA–LoD become spw0–spw3, and optionally drops antennas.
-   - aoflagger flags, `fix_scans.fix_scans` renumbers scans, and CASA channel-averages into `<input>/master_ms.ms`.
+   - CASA (via generated temp scripts run with `log.run`) concatenates the MSs, listed in sorted order by `uvh5_files.find_converted_ms` (which matches only `uvh5_*_Lo?.ms`) so LoA–LoD become spw0–spw3, and optionally drops antennas. Once concat has succeeded, the converted per-scan, per-LO MSs are deleted.
+   - aoflagger flags, `fix_scans.fix_scans` renumbers scans, and CASA channel-averages into `<input>/<MJD>_<targets>.ms` (`uvh5_files.final_ms_name`: the first scan's MJD, all targets sorted and joined with `_`, e.g. `61294_AT2026yeh.ms`). `tests/data/master_ms.ms` keeps its old name: it is only an input to the MS-route tests.
    - Expected layout: `<dir>/uvh5*<timeID>*0001/Lo?*/*.uvh5`. The time ID comes from fixed `_`-separated positions in the filename; the field name is everything between it and the trailing `_0001`, since it can contain underscores.
 2. **Field classification** (`atari.calibrators.classify_field`):
    - `Stay_put` (any case; `SKIP_FIELDS`) → skipped completely. These scans are recorded while the sources are below the horizon.

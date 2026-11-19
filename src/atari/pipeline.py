@@ -13,7 +13,7 @@ from atari import fix_scans
 from atari.calibrators import calibrator_problems, classify_field
 from atari.cli import input_kind, output_folder, parse_args, resolve_refant
 from atari.log import Progress, logger, run, setup_logging, setup_worker
-from atari.uvh5_files import find_converted_ms, find_fields, find_time_ids, read_lo
+from atari.uvh5_files import final_ms_name, find_converted_ms, find_fields, find_time_ids, read_lo
 from atari.write_casa_scripts import channel_selection, write_flag_antennas
 import glob
 from functools import partial
@@ -124,6 +124,9 @@ def main(argv=None):
         # CONVERT TO MEASUREMENT SET FIRST
         check_fields(find_fields(mydata), args.calibrators)
         timeIDs = find_time_ids(mydata)
+        # The combined, flagged and averaged measurement set, e.g.
+        # 61294_AT2026yeh.ms.
+        final_ms = os.path.join(mydata, final_ms_name(mydata, args.calibrators))
 
         logger.info('Converting ' + str(len(timeIDs)) + ' scans to measurement sets...')
         progress = Progress(len(timeIDs), 'Converting scans')
@@ -152,6 +155,11 @@ def main(argv=None):
             os.path.join(logdir, 'casa_concat.log'),
             'Combining spectral chunks with CASA',
             outputs=concat_outputs, cwd=logdir)
+        # The converted per-scan, per-LO files are now all in the combined
+        # MS (run stops above if concat failed). The raw uvh5 files can always
+        # be converted again, so free their space before the next steps.
+        remove(*final_concat)
+        logger.debug('Deleted the ' + str(len(final_concat)) + ' converted measurement sets')
 
         run('aoflagger -v ' + concat_outputs[-1],
             os.path.join(logdir, 'aoflagger.log'),
@@ -165,19 +173,20 @@ def main(argv=None):
 
         f = open(avg_script, 'w')
         if flagants != '':
-            f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp2.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
+            f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp2.ms\', outputvis=\'' + final_ms + '\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
         else:
-            f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms.ms\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
+            f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + final_ms + '\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
         f.close()
 
         run(casapath + ' --nologger --log2term --nologfile -c ' + avg_script,
             os.path.join(logdir, 'casa_average.log'),
             'Averaging channels with CASA',
-            outputs=[mydata + '/master_ms.ms'], cwd=logdir)
+            outputs=[final_ms], cwd=logdir)
         remove(mydata + '/master_ms_tmp.ms', mydata + '/master_ms_tmp2.ms',
                avg_script, concat_script)
 
-        mydata = mydata + '/master_ms.ms'
+        mydata = final_ms
+        logger.info('Combined measurement set: ' + final_ms)
 
     else:
         logger.info('Starting with measurement set: ' + mydata)
