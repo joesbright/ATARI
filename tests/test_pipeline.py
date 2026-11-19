@@ -161,6 +161,12 @@ def test_setup_from_uvh5(tmp_path, monkeypatch, capfd):
     # Once per conversion process, not once per file.
     assert 1 <= (logs / 'atari_setup.log').read_text().count('phased-up') <= os.cpu_count()
     assert 'virtualenv' not in (logs / 'casa_concat.log').read_text()
+    # The final measurement set is named after the first scan's MJD and the
+    # target, and the converted per-scan, per-LO files it was combined from
+    # are deleted.
+    assert (data / '61317_AT2026yeh.ms').is_dir()
+    assert not (data / 'master_ms.ms').exists()
+    assert not list(data.glob('uvh5_*_Lo?.ms'))
     # CASA runs in logs/, so its <task>.last files land there.
     assert (logs / 'concat.last').exists()
     assert (logs / 'mstransform.last').exists()

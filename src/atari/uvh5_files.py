@@ -4,7 +4,7 @@ import os
 import numpy as np
 from pyuvdata import UVData
 
-from atari.calibrators import skip_field
+from atari.calibrators import classify_field, skip_field
 
 # Each LO is 672 MHz recorded as 7 tunings of 96 MHz, each in its own
 # LoX.CXXXX folder. A tuning's name is its first channel in 0.5 MHz
@@ -44,8 +44,22 @@ def find_converted_ms(mydata):
     # in the order they are passed to CASA concat. concat sorts scans by time
     # but keeps the given order of LOs within a scan, and numbers spectral
     # windows in that order, so sort by name (LoA, LoB, ...) rather than rely
-    # on the order the filesystem lists them.
-    return sorted(glob.glob(mydata + '/*.ms'))
+    # on the order the filesystem lists them. Only the converted files'
+    # pattern is matched: the final MS and CASA's temporary ones are made in
+    # the same folder.
+    return sorted(glob.glob(mydata + '/uvh5_*_Lo?.ms'))
+
+
+def final_ms_name(mydata, extra_calibrators=None):
+    # <MJD>_<targets>.ms for the combined, flagged and averaged measurement
+    # set: the MJD of the first scan, so an observation running past midnight
+    # UTC keeps its start date, and every target in alphabetical order,
+    # joined with underscores. Skipped scans count for neither. The MJD is the
+    # first part of the time ID (e.g. 61317 in 61317_11988_5522216).
+    scans = list(_scans(mydata))
+    first = min(tuple(int(part) for part in timeID.split('_')[:2]) for timeID, field in scans)
+    targets = sorted({field for timeID, field in scans if classify_field(field, extra_calibrators) == 'TARGET'})
+    return str(first[0]) + '_' + '_'.join(targets) + '.ms'
 
 
 def find_tuning_files(folder, lo):

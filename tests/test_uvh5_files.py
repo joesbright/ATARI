@@ -44,6 +44,51 @@ def test_converted_ms_are_listed_in_a_fixed_order(tmp_path, monkeypatch):
     assert [Path(p).name for p in found] == names
 
 
+def test_find_converted_ms_ignores_other_measurement_sets(tmp_path):
+    # The final MS and CASA's temporary ones are made in the same folder, and
+    # must never be passed to concat as if they were converted scans.
+    names = ['uvh5_61317_11988_5522216_3c48_0001_Lo' + lo + '.ms' for lo in 'ABCD']
+    for name in names + ['61317_AT2026yeh.ms', 'master_ms_tmp.ms', 'master_ms.ms']:
+        (tmp_path / name).mkdir()
+
+    found = uvh5_files.find_converted_ms(str(tmp_path))
+
+    assert [Path(p).name for p in found] == names
+
+
+def make_scans(folder, scans):
+    for scan in scans:
+        tuning = folder / scan / 'LoC.C0352'
+        tuning.mkdir(parents=True)
+        (tuning / (scan + '.uvh5')).touch()
+
+
+def test_final_ms_name_is_mjd_and_target():
+    assert uvh5_files.final_ms_name(str(UVH5)) == '61317_AT2026yeh.ms'
+
+
+def test_final_ms_name_joins_targets_and_uses_the_first_scans_mjd(tmp_path):
+    # Targets in alphabetical order; the MJD of the first scan, so an
+    # observation that runs past midnight UTC keeps its start date. Skipped
+    # scans count for neither.
+    make_scans(tmp_path, ['uvh5_61324_80000_1000000_Stay_put_0001',
+                          'uvh5_61325_80000_2000000_3C48_0001',
+                          'uvh5_61325_81000_3000000_SN2026abc_0001',
+                          'uvh5_61326_00100_4000000_AT2026yeh_0001'])
+
+    assert uvh5_files.final_ms_name(str(tmp_path)) == '61325_AT2026yeh_SN2026abc.ms'
+
+
+def test_final_ms_name_counts_extra_calibrators_as_calibrators(tmp_path):
+    make_scans(tmp_path, ['uvh5_61325_80000_2000000_3C48_0001',
+                          'uvh5_61325_81000_3000000_J1234+5678_0001',
+                          'uvh5_61325_82000_4000000_AT2026yeh_0001'])
+    extra = tmp_path / 'extra.dat'
+    extra.write_text('J1234+5678\n')
+
+    assert uvh5_files.final_ms_name(str(tmp_path), str(extra)) == '61325_AT2026yeh.ms'
+
+
 def test_find_time_ids_skips_stay_put_scans(tmp_path):
     # Issue #5: Stay_put scans are recorded while the sources are below the
     # horizon, so they are not converted at all. The field name can contain

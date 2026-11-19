@@ -1,5 +1,6 @@
-"""Make tests/data/master_ms.ms from the master_ms.ms that a pipeline run on
-the test observation produced.
+"""Make tests/data/master_ms.ms from the combined measurement set that a
+pipeline run on the test observation produced (61317_AT2026yeh.ms; called
+master_ms.ms before 2026-11).
 
 The measurement sets CASA writes can have table.dat files whose row counts
 are out of date: the correct counts are only in the table.lock files, which
@@ -9,7 +10,7 @@ here so that its table.dat is correct. The result is checked by deleting the
 lock files and reading every table again in a fresh process.
 
 Run it where python-casacore is installed (e.g. an ATA node):
-    python make_test_ms.py ~/atari_baseline_run/master_ms.ms ~/master_ms_clean.ms
+    python make_test_ms.py ~/atari_baseline_run/61317_AT2026yeh.ms ~/master_ms_clean.ms
 """
 import argparse
 import os
@@ -48,7 +49,7 @@ def value_copy(src, dst):
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('src', help='master_ms.ms produced by a pipeline run')
+    parser.add_argument('src', help='combined MS produced by a pipeline run, e.g. 61317_AT2026yeh.ms')
     parser.add_argument('dst', help='where to write the clean copy (must not exist)')
     args = parser.parse_args()
 
