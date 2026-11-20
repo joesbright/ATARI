@@ -67,6 +67,16 @@ def test_first_generation_calibration_recipe(tmp_path):
     assert [f.get('datacolumn') for f in flags] == [None, None, 'corrected', 'corrected']
     assert all('field' not in f for f in flags)
 
+    # One bandpass solution per flux-calibrator scan (CASA's bandpass defaults
+    # to combine='scan', which averages all scans into one), interpolated
+    # linearly in time when applied (issue #30).
+    bandpass = [kwargs for name, kwargs in calls if name == 'bandpass']
+    assert len(bandpass) == 1 and bandpass[0]['combine'] == ''
+    b_table = bandpass[0]['caltable']
+    for name, kwargs in calls:
+        if name == 'applycal':
+            assert kwargs['interp'][kwargs['gaintable'].index(b_table)] == 'linear', kwargs['field']
+
 
 def test_flag_u0_script_is_valid_python(tmp_path):
     script = tmp_path / '1GC_.py'

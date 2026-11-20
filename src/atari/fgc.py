@@ -34,18 +34,23 @@ def first_generation_calibration(myms,
     G1_table = str(flux_cal) + '.G1'
     flux_table = str(flux_cal) + '.fluxscale'
 
+    # B0 is solved once per flux-calibrator scan (combine='') and applied with
+    # linear interpolation in time, so a bandpass that drifts over a long
+    # track is followed rather than averaged (issue #30). With a single
+    # flux-calibrator scan this is the same as before.
+
     # set the flux density scale assuming standard flux calibrators 
     write_casa_scripts.write_flagdata(myms, script_name)
     write_casa_scripts.write_setjy(myms, flux_cal, script_name)
     write_casa_scripts.write_gaincal(myms, G0_table, flux_cal, refant, 'p', 'int', script_name, outdir)
     write_casa_scripts.write_gaincal(myms, K0_table, flux_cal, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table], gaintype='K')
-    write_casa_scripts.write_bandpass(myms, B0_table, flux_cal, refant, 'B', 'inf', script_name, outdir, gaintable=[G0_table,K0_table])
+    write_casa_scripts.write_bandpass(myms, B0_table, flux_cal, refant, 'B', 'inf', script_name, outdir, gaintable=[G0_table,K0_table], combine='')
     write_casa_scripts.write_gaincal(myms, G1_table, flux_cal, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table,B0_table,K0_table], spw=g1_spw)
     write_casa_scripts.write_gaincal(myms, G1_table, phase_cal, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table,B0_table,K0_table], append='True', spw=g1_spw)
     write_casa_scripts.write_fluxscale(myms, G1_table, flux_table, flux_cal, [str(phase_cal)], script_name, outdir)
-    write_casa_scripts.write_applycal(myms, flux_cal, [flux_table,K0_table,B0_table,G0_table], [str(flux_cal), '',''], ['nearest','',''], 'False', script_name, outdir)
-    write_casa_scripts.write_applycal(myms, phase_cal, [flux_table,K0_table,B0_table,G0_table], [str(phase_cal), '',''], ['nearest','',''], 'False', script_name, outdir)
-    write_casa_scripts.write_applycal(myms, target, [flux_table,K0_table,B0_table,G0_table], [str(phase_cal), '',''], ['linear','',''], 'False', script_name, outdir)
+    write_casa_scripts.write_applycal(myms, flux_cal, [flux_table,K0_table,B0_table,G0_table], [str(flux_cal), '',''], ['nearest','','linear'], 'False', script_name, outdir)
+    write_casa_scripts.write_applycal(myms, phase_cal, [flux_table,K0_table,B0_table,G0_table], [str(phase_cal), '',''], ['nearest','','linear'], 'False', script_name, outdir)
+    write_casa_scripts.write_applycal(myms, target, [flux_table,K0_table,B0_table,G0_table], [str(phase_cal), '',''], ['linear','','linear'], 'False', script_name, outdir)
     # Flag the calibrated data, which is what gets imaged (on 2026-09-18 p060
     # this lowered the image noise 1.8-2.9x; flux scale unchanged).
     write_casa_scripts.write_flagdata(myms, script_name, datacolumn='corrected')
