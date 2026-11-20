@@ -11,11 +11,12 @@ ATARI (Allen Telescope Array Radio Imaging) is research code that calibrates and
 ```bash
 uv sync              # once; installs ATARI in editable mode
 uv run atari-setup <PATH_TO_MS_OR_UVH5_FOLDER> --refant <name_or_index> [--casapath <casa>] [--chanbin 8] [--flagants ant1,ant2] [--calibrators extra.dat]
-casa -c <OUT>/1GC_.py      # first-generation calibration
+bash <OUT>/1GC_.sh         # first-generation calibration, one CASA process per split in parallel
+                           # (or casa -c <OUT>/1GC_.py: the same splits one after another)
 . <OUT>/image_.sh          # WSClean imaging
 ```
 
-`1GC_.py` and `image_.sh` are written to `<OUT>` = `cli.output_folder`: the folder holding an input MS, or the uvh5 folder itself, beside `logs/` and the per-target folders. Nothing is written to the current folder. The input path is made absolute first, so the scripts work from any folder. `ATARI/01_setup.py` is a thin wrapper that calls `atari.pipeline.main` for the old usage. On the ATA compute nodes, symlink the data folder and pass the symlink; `--casapath` is needed there.
+`1GC_.sh`, `1GC_.py` and `image_.sh` are written to `<OUT>` = `cli.output_folder`: the folder holding an input MS, or the uvh5 folder itself, beside `logs/` and the per-target folders. Nothing is written to the current folder. The input path is made absolute first, so the scripts work from any folder. `ATARI/01_setup.py` is a thin wrapper that calls `atari.pipeline.main` for the old usage. On the ATA compute nodes, symlink the data folder and pass the symlink; `--casapath` is needed there.
 
 Dependencies:
 - **Python ≥3.10**, declared in `pyproject.toml` and locked in `uv.lock`: numpy, scipy, astropy, pyuvdata (must accept `fix_old_proj=`), python-casacore, termcolor. pytest is in the `dev` dependency group.
@@ -24,7 +25,7 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (121 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 121 run:
+`uv run pytest -rs` (122 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 122 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
@@ -32,7 +33,7 @@ ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
 
 - Need no casacore (run on macOS): `test_calibrators.py`, `test_cli.py`, `test_log.py`, `test_script_writers.py` (parses the generated CASA script with `ast`, which catches broken quoting), `test_uvh5_files.py`.
 - `test_conversion.py`: uvh5 → per-LO MS conversion of the test observation with the locked pyuvdata.
-- `test_pipeline.py`: regression tests. They compare `1GC_.py`/`image_.sh` with `tests/data/expected/` (temp path replaced by `{WORKDIR}`), from two routes:
+- `test_pipeline.py`: regression tests. They compare `1GC_.py` (rebuilt from the per-split `1GC.py` scripts it runs, so the calibration commands themselves are compared), `1GC_.sh` (CASA path masked) and `image_.sh` with `tests/data/expected/` (temp path replaced by `{WORKDIR}`), from two routes:
   - `tests/data/master_ms.ms` (needs casacore only);
   - `tests/data/uvh5/` (also needs CASA and aoflagger; `ATARI_CASAPATH` if casa is an alias).
 - Test data: `tests/data/uvh5/` is three scans of p060 2026-10-04 (3c48, 0038+416, AT2026yeh), cut with `tests/make_test_data.py` (h5py, so the raw files' old uvh5 layout is kept). LoD has only 5 tunings because recording nodes dropped; that is deliberate and realistic. Each tuning is cut to its middle 32 channels, so the test LOs have gaps between tunings (real tunings have 192 channels and abut).
@@ -58,7 +59,7 @@ Flow:
    - MS input: exact zeros are flagged in the given MS at the start (`pipeline.flag_zeros`).
    - `--refant` (required) is looked up in the final MS's ANTENNA table by `cli.resolve_refant`: all digits → index, otherwise name. CASA always gets the index.
 3. **Per target and SPW**: a TaQL query splits out `<target>_spwN/<target>_spwN.ms`, containing the target, its gain calibrator and the flux calibrator, with `IMAGES/`, `CALIBRATION_TABLES/` and `PLOTS/` subfolders. These are written beside the input; `os.mkdir` fails on a re-run if they already exist. For each split:
-   - `fgc.first_generation_calibration` writes the CASA recipe: tfcrop/rflag (on DATA) → setjy → G0 → K0 → B0 → G1 → fluxscale → applycal → tfcrop/rflag again on the **calibrated** data (`datacolumn='corrected'`, all fields) → `statwt` on the target only (weights from the scatter of the calibrated data, so noisy antennas count for less; 2026-09-18 p060: image noise a further 8–36% lower, fluxes unchanged to 0.1%; not on calibrators, whose bright signal would inflate the scatter). Flagging the uncalibrated data after calibration missed rare extreme outliers (2026-09-18 p060: the top 1% of target samples held 75% of the variance); flagging the corrected data lowered the image noise 1.8–2.9× with the flux scale unchanged (3C286 and 0119+321 within 0.3%). The default flag extension across polarisations is kept: turning it off kept more, but noisier, data and raised the image noise 25%. B0 is solved once per flux-calibrator scan (`combine=''`; CASA's `bandpass` defaults to `combine='scan'`, one bandpass averaged over all scans) and applied with `interp='linear'` in time, so a bandpass that drifts over a long track is followed (issue #30; on 2026-09-18 p060 spw0 the shape changed by ~0.5% in amplitude and ~0.4° in phase between scans 13.6 h apart, beyond the solution noise).
+   - `fgc.first_generation_calibration` writes the CASA recipe into the split's own `<split>/1GC.py`; `1GC_.py` runs these one after another (`exec`), and `1GC_.sh` (`write_casa_scripts.write_parallel_calibration`) runs each in its own CASA process, up to min(splits, cores) at once (`ATARI_JOBS` overrides), logging to `logs/1GC_<split>.log` and exiting non-zero if a CASA process failed. CASA's calibration uses ~1.1 cores (measured on comp-node9), so this is ~4× faster for 4 subbands. The recipe: tfcrop/rflag (on DATA) → setjy → G0 → K0 → B0 → G1 → fluxscale → applycal → tfcrop/rflag again on the **calibrated** data (`datacolumn='corrected'`, all fields) → `statwt` on the target only (weights from the scatter of the calibrated data, so noisy antennas count for less; 2026-09-18 p060: image noise a further 8–36% lower, fluxes unchanged to 0.1%; not on calibrators, whose bright signal would inflate the scatter). Flagging the uncalibrated data after calibration missed rare extreme outliers (2026-09-18 p060: the top 1% of target samples held 75% of the variance); flagging the corrected data lowered the image noise 1.8–2.9× with the flux scale unchanged (3C286 and 0119+321 within 0.3%). The default flag extension across polarisations is kept: turning it off kept more, but noisier, data and raised the image noise 25%. B0 is solved once per flux-calibrator scan (`combine=''`; CASA's `bandpass` defaults to `combine='scan'`, one bandpass averaged over all scans) and applied with `interp='linear'` in time, so a bandpass that drifts over a long track is followed (issue #30; on 2026-09-18 p060 spw0 the shape changed by ~0.5% in amplitude and ~0.4° in phase between scans 13.6 h apart, beyond the solution noise).
    - `fgc.image_all_fields` writes three WSClean commands. All WSClean commands (also the deep image) use Briggs robust `write_wsclean_scripts.BRIGGS_ROBUST` = 0.7, chosen from a robust sweep on 2026-09-18 p060 (see the comment there); re-check it when the array changes.
 4. **Final steps**: a deep WSClean image over all splits is written to `DEEP_IMAGE/`. (An earlier "u=0" clip of each field's calibrated amplitudes above their 99th percentile was removed in 2026-11: it flagged nothing on 2026-09-18 p060, would bias bright calibrators if it did, and flagging the corrected data covers its purpose.)
 

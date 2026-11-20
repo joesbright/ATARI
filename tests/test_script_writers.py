@@ -161,3 +161,43 @@ def test_g1_solves_use_the_channel_selection(tmp_path):
         else:
             assert 'spw' not in kwargs
     assert sum(k['caltable'].endswith('.G1') for k in gaincals) == 2
+
+
+def test_parallel_calibration_runs_splits_together_and_reports_failures(tmp_path):
+    # 1GC_.sh runs each split's calibration script in its own CASA process,
+    # several at once (CASA's calibration uses ~1 core), and must not hide a
+    # failure. A stand-in for CASA records each run, takes 1 s, and fails for
+    # one split.
+    import subprocess
+    import time
+
+    record = tmp_path / 'record.txt'
+    casa = tmp_path / 'fake_casa'
+    casa.write_text('#!/bin/bash\n'
+                    'script="${@: -1}"\n'
+                    'echo "start $script" >> ' + str(record) + '\n'
+                    'echo "calibrating $script"\n'
+                    'sleep 1\n'
+                    'case "$script" in *broken*) exit 3;; esac\n')
+    casa.chmod(0o755)
+    scripts = []
+    for name in ['target_spw0', 'target_spw1', 'broken_spw2']:
+        (tmp_path / name).mkdir()
+        scripts.append(str(tmp_path / name / '1GC.py'))
+        (tmp_path / name / '1GC.py').write_text('# calibration\n')
+    logdir = tmp_path / 'logs'
+    logdir.mkdir()
+    runner = tmp_path / '1GC_.sh'
+    write_casa_scripts.write_parallel_calibration(scripts, str(casa), str(logdir), str(runner), 3)
+
+    start = time.monotonic()
+    result = subprocess.run(['bash', str(runner)], capture_output=True, text=True)
+    elapsed = time.monotonic() - start
+
+    assert sorted(record.read_text().split()[1::2]) == sorted(scripts)
+    assert elapsed < 2.5, 'the three 1 s calibrations did not run in parallel'
+    for name in ['target_spw0', 'target_spw1', 'broken_spw2']:
+        assert 'calibrating' in (logdir / ('1GC_' + name + '.log')).read_text()
+    assert result.returncode != 0
+    failed = [line for line in result.stdout.splitlines() if line.startswith('FAILED')]
+    assert len(failed) == 1 and 'broken_spw2' in failed[0]
