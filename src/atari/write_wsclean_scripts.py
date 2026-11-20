@@ -1,3 +1,11 @@
+# Briggs robust weighting for every image. Chosen from a sweep on 2026-09-18
+# p060 (28 antennas, after flagging the calibrated data and statwt; robust 0.3
+# to 1.3 in steps of 0.1): 0.7 was within 0-2.6% of the lowest noise at 3, 5
+# and 7 GHz, while 0.5 was 1.8-7.6% worse and natural weighting was never best.
+# Worth re-checking when the array or its uv coverage changes.
+BRIGGS_ROBUST = 0.7
+
+
 def write_wsclean(vis, 
                 target,
                 flux_cal,
@@ -27,7 +35,7 @@ def write_wsclean(vis,
         args += '-join-channels '
         args += '-channels-out 4 '
         args += '-fit-spectral-pol 2 '
-        args += '-weight briggs 0.5 '
+        args += '-weight briggs ' + str(BRIGGS_ROBUST) + ' '
         args += '-mgain 0.7 '
         args += '-local-rms '
         args += '-auto-mask 5 '
@@ -61,7 +69,7 @@ def write_deep_image(vislist,
     args += '-join-channels '
     args += '-channels-out 4 '
     args += '-fit-spectral-pol 2 '
-    args += '-weight briggs 0.5 '
+    args += '-weight briggs ' + str(BRIGGS_ROBUST) + ' '
     args += '-mgain 0.7 '
     args += '-local-rms '
     args += '-auto-threshold 5 '

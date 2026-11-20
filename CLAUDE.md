@@ -24,7 +24,7 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (121 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 121 run:
+`uv run pytest -rs` (122 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 122 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
@@ -59,7 +59,7 @@ Flow:
    - `--refant` (required) is looked up in the final MS's ANTENNA table by `cli.resolve_refant`: all digits → index, otherwise name. CASA always gets the index.
 3. **Per target and SPW**: a TaQL query splits out `<target>_spwN/<target>_spwN.ms`, containing the target, its gain calibrator and the flux calibrator, with `IMAGES/`, `CALIBRATION_TABLES/` and `PLOTS/` subfolders. These are written beside the input; `os.mkdir` fails on a re-run if they already exist. For each split:
    - `fgc.first_generation_calibration` writes the CASA recipe: tfcrop/rflag → setjy → G0 → K0 → B0 → G1 → fluxscale → applycal.
-   - `fgc.image_all_fields` writes three WSClean commands.
+   - `fgc.image_all_fields` writes three WSClean commands. All WSClean commands (also the deep image) use Briggs robust `write_wsclean_scripts.BRIGGS_ROBUST` = 0.7, chosen from a robust sweep on 2026-09-18 p060 (see the comment there); re-check it when the array changes.
 4. **Final steps**: a deep WSClean image over all splits is written to `DEEP_IMAGE/`. `fgc.flag_u0` adds a 99th-percentile amplitude clip to `1GC_.py`.
 
 Layering: `pipeline.py` → `fgc.py` (defines the recipe order; imported as `FGC`) → `write_casa_scripts.py` / `write_wsclean_scripts.py`. These two build CASA task calls and WSClean commands by string concatenation, so check quoting carefully when editing them. `fix_scans.py` edits MS tables in place. `calibrators.py`, `cli.py`, `log.py` and `uvh5_files.py` are kept free of casacore so they can be tested anywhere.
