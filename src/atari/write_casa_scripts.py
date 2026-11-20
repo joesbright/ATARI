@@ -211,6 +211,19 @@ def write_flagdata(vis, script_name, datacolumn=None):
     f.close()
 
 
+def write_statwt(vis, field, script_name):
+    # Set each row's weight from the scatter of its calibrated data across
+    # channels (CASA statwt defaults), so noisy antennas are down-weighted in
+    # imaging rather than counting equally. For the target only: on a bright
+    # calibrator the real signal across the band would inflate the scatter.
+    f = open(script_name, 'a')
+    args = 'vis=\'' + vis + '\','
+    args += 'datacolumn=\'corrected\','
+    args += 'field=\'' + str(field) + '\''
+    f.write('statwt(' + args + ')\n')
+    f.close()
+
+
 def write_flag_antennas(vis, antenna, script_name):
 
     f = open(script_name, 'a')

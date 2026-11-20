@@ -54,6 +54,10 @@ def first_generation_calibration(myms,
     # Flag the calibrated data, which is what gets imaged (on 2026-09-18 p060
     # this lowered the image noise 1.8-2.9x; flux scale unchanged).
     write_casa_scripts.write_flagdata(myms, script_name, datacolumn='corrected')
+    # Last, after all calibration and flagging: weight the target's
+    # visibilities by their measured noise (on 2026-09-18 p060 this lowered
+    # the image noise a further 8-36%, with fluxes unchanged to 0.1%).
+    write_casa_scripts.write_statwt(myms, target, script_name)
 
     return None
 
