@@ -382,10 +382,6 @@ def main(argv=None):
         deep_dir,
         target_name)
 
-    FGC.flag_u0(
-        vislist,
-        gc_script)
-
     logger.info('Wrote 1GC_.py and image_.sh in ' + outdir + '. Next: casa -c ' + gc_script + ', then . ' + image_script)
 
 

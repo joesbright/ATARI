@@ -78,18 +78,6 @@ def test_first_generation_calibration_recipe(tmp_path):
             assert kwargs['interp'][kwargs['gaintable'].index(b_table)] == 'linear', kwargs['field']
 
 
-def test_flag_u0_script_is_valid_python(tmp_path):
-    script = tmp_path / '1GC_.py'
-    fgc.flag_u0(['/obs/a.ms', '/obs/b.ms'], str(script))
-
-    clips = [kwargs for name, kwargs in casa_calls(script) if name == 'flagdata']
-    # One clip per field (IDs 0-2) per measurement set.
-    assert [(c['vis'], c['field']) for c in clips] == [
-        ('/obs/a.ms', '0'), ('/obs/a.ms', '1'), ('/obs/a.ms', '2'),
-        ('/obs/b.ms', '0'), ('/obs/b.ms', '1'), ('/obs/b.ms', '2'),
-    ]
-
-
 def test_image_all_fields_writes_one_wsclean_command_per_field(tmp_path):
     script = tmp_path / 'image_.sh'
     fgc.image_all_fields('/obs/target_spw0.ms', 2, 0, 1, 'target', '3c286', '1331+305',

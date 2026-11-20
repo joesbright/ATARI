@@ -76,6 +76,13 @@ def test_setup_from_measurement_set(tmp_path, monkeypatch):
     check_outputs(tmp_path, tmp_path)
     assert_no_unflagged_zeros(tmp_path)
 
+    # The old "u=0" clip (each field's calibrated amplitudes above their 99th
+    # percentile) flagged nothing on 2026-09-18 p060, would bias bright
+    # calibrators if it did, and is covered by flagging the corrected data.
+    script = (tmp_path / '1GC_.py').read_text()
+    assert "mode='clip'" not in script
+    assert 'tb.open' not in script
+
 
 @pytest.mark.skipif(not TEST_MS.exists(), reason='tests/data/master_ms.ms is missing')
 def test_scripts_are_written_beside_the_data(tmp_path, monkeypatch):

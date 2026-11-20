@@ -86,11 +86,3 @@ def deep_image(vislist,
     write_wsclean_scripts.write_deep_image(vislist, field, script_name, imsize, cell, outdir, target_name)
     
     return None
-
-
-def flag_u0(vislist,
-            script_name):
-
-    write_casa_scripts.write_u0_flag(vislist, script_name)
-
-    return None
