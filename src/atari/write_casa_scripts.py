@@ -112,7 +112,10 @@ def write_bandpass(vis,
                    outdir,
                    gaintype='G', 
                    gaintable=[], 
-                   bandtype='B'):
+                   bandtype='B',
+                   combine=None):
+    # combine=None leaves CASA's default (combine='scan': one bandpass
+    # averaged over every scan); combine='' solves once per scan.
     
     f = open(script_name, 'a')
 
@@ -134,6 +137,8 @@ def write_bandpass(vis,
             args += '\'' + outdir + str(item) + '\','
     args += 'bandtype=\''
     args += bandtype + '\''
+    if combine is not None:
+        args += ',combine=\'' + combine + '\''
 
     f.write('bandpass(' + args + ')\n')
     f.close()
