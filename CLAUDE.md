@@ -24,7 +24,7 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (122 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 122 run:
+`uv run pytest -rs` (121 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 121 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
@@ -60,7 +60,7 @@ Flow:
 3. **Per target and SPW**: a TaQL query splits out `<target>_spwN/<target>_spwN.ms`, containing the target, its gain calibrator and the flux calibrator, with `IMAGES/`, `CALIBRATION_TABLES/` and `PLOTS/` subfolders. These are written beside the input; `os.mkdir` fails on a re-run if they already exist. For each split:
    - `fgc.first_generation_calibration` writes the CASA recipe: tfcrop/rflag (on DATA) → setjy → G0 → K0 → B0 → G1 → fluxscale → applycal → tfcrop/rflag again on the **calibrated** data (`datacolumn='corrected'`, all fields). Flagging the uncalibrated data after calibration missed rare extreme outliers (2026-09-18 p060: the top 1% of target samples held 75% of the variance); flagging the corrected data lowered the image noise 1.8–2.9× with the flux scale unchanged (3C286 and 0119+321 within 0.3%). The default flag extension across polarisations is kept: turning it off kept more, but noisier, data and raised the image noise 25%. B0 is solved once per flux-calibrator scan (`combine=''`; CASA's `bandpass` defaults to `combine='scan'`, one bandpass averaged over all scans) and applied with `interp='linear'` in time, so a bandpass that drifts over a long track is followed (issue #30; on 2026-09-18 p060 spw0 the shape changed by ~0.5% in amplitude and ~0.4° in phase between scans 13.6 h apart, beyond the solution noise).
    - `fgc.image_all_fields` writes three WSClean commands. All WSClean commands (also the deep image) use Briggs robust `write_wsclean_scripts.BRIGGS_ROBUST` = 0.7, chosen from a robust sweep on 2026-09-18 p060 (see the comment there); re-check it when the array changes.
-4. **Final steps**: a deep WSClean image over all splits is written to `DEEP_IMAGE/`. `fgc.flag_u0` adds a 99th-percentile amplitude clip to `1GC_.py`.
+4. **Final steps**: a deep WSClean image over all splits is written to `DEEP_IMAGE/`. (An earlier "u=0" clip of each field's calibrated amplitudes above their 99th percentile was removed in 2026-11: it flagged nothing on 2026-09-18 p060, would bias bright calibrators if it did, and flagging the corrected data covers its purpose.)
 
 Layering: `pipeline.py` → `fgc.py` (defines the recipe order; imported as `FGC`) → `write_casa_scripts.py` / `write_wsclean_scripts.py`. These two build CASA task calls and WSClean commands by string concatenation, so check quoting carefully when editing them. `fix_scans.py` edits MS tables in place. `calibrators.py`, `cli.py`, `log.py` and `uvh5_files.py` are kept free of casacore so they can be tested anywhere.
 
@@ -73,7 +73,6 @@ Known bugs and open questions are GitHub issues (`gh issue list`).
 - Dead antennas, feeds and LOs are recorded as exact zeros without being flagged (37.6% of all samples on 2026-09-18 p060, mostly unflagged; neither aoflagger nor CASA's flagging caught them). ATARI flags them itself (see Flow); `test_pipeline.assert_no_unflagged_zeros` checks that none reach the per-target splits.
 - Hard-coded assumptions:
   - `STATE/OBS_MODE` is overwritten with exactly 5 rows (a no-op: CASA's concat output has no STATE rows).
-  - The u=0 clip assumes field IDs 0–2.
   - The deep image uses the `imsize`/`cell` of the last SPW processed (always LoD now).
 - Recording nodes can drop, so an LO can lack tunings (`LoX.C0352` … `LoX.C1504`), for the whole observation or from partway through. Each LO is 672 MHz recorded independently as 7 tunings of 96 MHz (192 × 0.5 MHz channels), always named `uvh5_files.TUNINGS` (C0352–C1504, the first channel number). `uvh5_files.read_lo` expects all 7 for every LO on its own and fills each missing one with zeroed, fully flagged data, at a recorded tuning's frequencies shifted by the difference in channel numbers. Each recorded tuning's start frequency is checked against its name, and an unknown tuning name is an error, so nothing is filled in the wrong place. An LO with no tunings in a scan was not recorded and is not filled. Without the filling:
   - CASA 6.6 `concat` aborts on exit (`ArrayShapeError`) when LOs have different channel counts, leaving stale row counts in `table.dat` that only the `table.lock` files correct. The input columns are variable-shape (`TiledShapeStMan`), so this looks like a CASA bug; the filling sidesteps it rather than explaining it.
