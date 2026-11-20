@@ -6,7 +6,7 @@ import ast
 import numpy as np
 import pytest
 
-from atari import fgc, write_casa_scripts
+from atari import fgc, write_casa_scripts, write_wsclean_scripts
 
 
 def casa_calls(script):
@@ -84,6 +84,7 @@ def test_image_all_fields_writes_one_wsclean_command_per_field(tmp_path):
         assert command[command.index('-field') + 1] == field
         assert command[command.index('-name') + 1] == '/obs/IMAGES/' + name + '_automask'
         assert command[command.index('-size') + 1:command.index('-size') + 3] == ['4096', '4096']
+        assert command[command.index('-weight') + 1:command.index('-weight') + 3] == ['briggs', '0.7']
         assert command[-1] == '/obs/target_spw0.ms'
 
 
@@ -94,7 +95,15 @@ def test_deep_image_combines_all_measurement_sets(tmp_path):
 
     command = script.read_text().split()
     assert command[0] == 'wsclean'
+    assert command[command.index('-weight') + 1:command.index('-weight') + 3] == ['briggs', '0.7']
     assert command[-2:] == ['/obs/a.ms', '/obs/b.ms']
+
+
+def test_per_field_and_deep_images_use_the_same_weighting():
+    # Chosen from a robust sweep on 2026-09-18 p060 (0.3-1.3 in steps of 0.1):
+    # 0.7 was within 0-2.6% of the lowest noise at 3, 5 and 7 GHz; 0.5 was
+    # 1.8-7.6% worse, and natural weighting was never best.
+    assert write_wsclean_scripts.BRIGGS_ROBUST == 0.7
 
 
 def test_flag_antennas_command_is_valid(tmp_path):
