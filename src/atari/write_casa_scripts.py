@@ -183,7 +183,11 @@ def write_applycal(vis, field, gaintable, gainfield, interp, calwt, script_name,
     f.close()
 
 
-def write_flagdata(vis, script_name):
+def write_flagdata(vis, script_name, datacolumn=None):
+    # tfcrop then rflag on all fields. datacolumn=None leaves CASA's default
+    # (DATA, the uncalibrated data); 'corrected' flags the calibrated data,
+    # where antenna gain and bandpass differences no longer hide outliers.
+    column = '' if datacolumn is None else ',datacolumn=\'' + datacolumn + '\''
 
     f = open(script_name, 'a')
 
@@ -191,14 +195,14 @@ def write_flagdata(vis, script_name):
     args += vis + '\','
     args += 'mode=\'tfcrop\''
 
-    f.write('flagdata(' + args + ')\n')
+    f.write('flagdata(' + args + column + ')\n')
 
 
     args = 'vis=\''
     args += vis + '\','
     args += 'mode=\'rflag\''
 
-    f.write('flagdata(' + args + ')\n')
+    f.write('flagdata(' + args + column + ')\n')
     f.close()
 
 

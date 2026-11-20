@@ -58,6 +58,15 @@ def test_first_generation_calibration_recipe(tmp_path):
     applied = [kwargs['field'] for name, kwargs in calls if name == 'applycal']
     assert applied == ['3c286', '1331+305', 'target']
 
+    # The first flagging runs before calibration, so on DATA (CASA's default);
+    # the final flagging must look at the calibrated data, where antenna gain
+    # and bandpass differences no longer hide outliers (2026-09-18 p060: image
+    # noise 1.8-2.9x lower). It covers all fields, calibrators included.
+    flags = [kwargs for name, kwargs in calls if name == 'flagdata']
+    assert [f['mode'] for f in flags] == ['tfcrop', 'rflag', 'tfcrop', 'rflag']
+    assert [f.get('datacolumn') for f in flags] == [None, None, 'corrected', 'corrected']
+    assert all('field' not in f for f in flags)
+
 
 def test_flag_u0_script_is_valid_python(tmp_path):
     script = tmp_path / '1GC_.py'
