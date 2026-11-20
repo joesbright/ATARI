@@ -17,6 +17,7 @@ and review the difference with `git diff tests/data/expected` before
 committing it.
 """
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -32,7 +33,7 @@ DATA = Path(__file__).parent / 'data'
 UVH5 = DATA / 'uvh5'
 TEST_MS = DATA / 'master_ms.ms'
 EXPECTED = DATA / 'expected'
-OUTPUTS = ['1GC_.py', 'image_.sh']
+OUTPUTS = ['1GC_.py', '1GC_.sh', 'image_.sh']
 
 # Generated scripts contain absolute paths to the data. They are replaced
 # with this placeholder so the comparison works in any folder.
@@ -43,9 +44,26 @@ PLACEHOLDER = '{WORKDIR}'
 CASA = os.environ.get('ATARI_CASAPATH') or shutil.which('casa')
 
 
+def generated(workdir, name):
+    text = (workdir / name).read_text()
+    if name == '1GC_.py':
+        # 1GC_.py runs each split's own calibration script (<split>/1GC.py) in
+        # turn. Rebuild the full recipe from them, so that the comparison with
+        # expected/1GC_.py checks the calibration commands themselves.
+        lines = []
+        for line in text.splitlines(keepends=True):
+            run = re.fullmatch(r"exec\(open\('(.+)'\)\.read\(\)\)\n", line)
+            lines.append(Path(run.group(1)).read_text() if run else line)
+        text = ''.join(lines)
+    if name == '1GC_.sh':
+        # The CASA path differs between the two routes (--casapath).
+        text = re.sub(r'^CASA=.*$', 'CASA={CASA}', text, flags=re.M)
+    return text
+
+
 def check_outputs(workdir, datadir):
     for name in OUTPUTS:
-        actual = (workdir / name).read_text().replace(str(datadir), PLACEHOLDER)
+        actual = generated(workdir, name).replace(str(datadir), PLACEHOLDER)
         if os.environ.get('ATARI_UPDATE_EXPECTED'):
             EXPECTED.mkdir(exist_ok=True)
             (EXPECTED / name).write_text(actual)
@@ -75,6 +93,15 @@ def test_setup_from_measurement_set(tmp_path, monkeypatch):
 
     check_outputs(tmp_path, tmp_path)
     assert_no_unflagged_zeros(tmp_path)
+
+    # Each split has its own calibration script, so the splits can be
+    # calibrated in parallel (1GC_.sh); 1GC_.py only runs them one by one.
+    split_scripts = sorted(tmp_path.glob('*_spw[0-9]/1GC.py'))
+    assert len(split_scripts) == len(sorted(tmp_path.glob('*_spw[0-9]/*_spw[0-9].ms'))) > 0
+    runs = [line for line in (tmp_path / '1GC_.py').read_text().splitlines()
+            if line and not line.startswith(('import', '#'))]
+    assert runs == ["exec(open('%s').read())" % path for path in split_scripts]
+    assert all(str(path) in (tmp_path / '1GC_.sh').read_text() for path in split_scripts)
 
     # The old "u=0" clip (each field's calibrated amplitudes above their 99th
     # percentile) flagged nothing on 2026-09-18 p060, would bias bright

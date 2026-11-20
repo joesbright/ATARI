@@ -14,7 +14,7 @@ from atari.calibrators import calibrator_problems, classify_field
 from atari.cli import input_kind, output_folder, parse_args, resolve_refant
 from atari.log import Progress, logger, run, setup_logging, setup_worker
 from atari.uvh5_files import final_ms_name, find_converted_ms, find_fields, find_time_ids, read_lo
-from atari.write_casa_scripts import channel_selection, write_flag_antennas
+from atari.write_casa_scripts import channel_selection, write_flag_antennas, write_parallel_calibration
 import glob
 from functools import partial
 import multiprocessing
@@ -107,6 +107,7 @@ def main(argv=None):
     logger.debug('Arguments: ' + str(vars(args)))
 
     gc_script = os.path.join(outdir, '1GC_.py')
+    gc_runner = os.path.join(outdir, '1GC_.sh')
     image_script = os.path.join(outdir, 'image_.sh')
     concat_script = os.path.join(outdir, 'concat_command.py')
     avg_script = os.path.join(outdir, 'avg_command.py')
@@ -114,7 +115,7 @@ def main(argv=None):
 
     # Scripts already here belong to an earlier run, whose split folders
     # would make this one fail later anyway: stop now rather than delete them.
-    for script in [gc_script, image_script]:
+    for script in [gc_script, gc_runner, image_script]:
         if os.path.exists(script):
             logger.error(outdir + ' already contains ' + os.path.basename(script) + ' from an earlier run. '
                          'Use a new folder, or delete the earlier outputs.')
@@ -309,6 +310,7 @@ def main(argv=None):
     field_matching = dict(zip(np.asarray(ordered_target_fields), np.asarray(ordered_pcal_fields)))
 
     FGC.write_dependencies(gc_script)
+    split_scripts = []
 
     vislist = []
     for key in fields:
@@ -344,16 +346,23 @@ def main(argv=None):
                     logger.debug(outfile + ': ' + str(nrows) + ' rows, cell ' + format(cell, '.2f') + ' arcsec, imsize '
                                  + str(imsize) + ', G1 channels ' + (g1_spw or 'all'))
 
-                    FGC.write_comments(gc_script, item, x)
+                    # Each split gets its own calibration script, so that
+                    # 1GC_.sh can calibrate the splits in parallel; 1GC_.py
+                    # runs them one after another.
+                    split_script = newdir + '1GC.py'
+                    split_scripts.append(split_script)
+                    FGC.write_comments(split_script, item, x)
 
                     FGC.first_generation_calibration(outfile,
                                                      item,
                                                      fcal_name,
                                                      fields[field_matching[item]][0],
                                                      refant,
-                                                     gc_script,
+                                                     split_script,
                                                      newdir + 'CALIBRATION_TABLES/',
                                                      g1_spw=g1_spw)
+                    with open(gc_script, 'a') as f:
+                        f.write("exec(open('" + split_script + "').read())\n")
 
                     FGC.image_all_fields(outfile,
                                          key,
@@ -382,7 +391,12 @@ def main(argv=None):
         deep_dir,
         target_name)
 
-    logger.info('Wrote 1GC_.py and image_.sh in ' + outdir + '. Next: casa -c ' + gc_script + ', then . ' + image_script)
+    write_parallel_calibration(split_scripts, casapath, logdir, gc_runner,
+                               min(len(split_scripts), os.cpu_count() or 1))
+
+    logger.info('Wrote 1GC_.sh, 1GC_.py and image_.sh in ' + outdir + '. Next: bash ' + gc_runner
+                + ' (calibrates the ' + str(len(split_scripts)) + ' splits in parallel; casa -c ' + gc_script
+                + ' does them one after another), then . ' + image_script)
 
 
 if __name__ == '__main__':

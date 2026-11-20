@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 
@@ -222,6 +223,47 @@ def write_statwt(vis, field, script_name):
     args += 'field=\'' + str(field) + '\''
     f.write('statwt(' + args + ')\n')
     f.close()
+
+
+def write_parallel_calibration(scripts, casapath, logdir, script_name, jobs):
+    # A bash script that runs each split's calibration script in its own CASA
+    # process, `jobs` at a time (override with ATARI_JOBS). CASA's calibration
+    # uses about one core (measured on comp-node9), so the splits are
+    # calibrated together instead of one after another. Each writes its own
+    # log in logdir; the script exits non-zero if any CASA process failed.
+    lines = [
+        '#!/bin/bash',
+        '# Calibrates every split in parallel: each <split>/1GC.py in its own CASA process,',
+        '# up to $ATARI_JOBS at a time. Logs: ' + logdir + '/1GC_<split>.log',
+        '# Exits non-zero if a CASA process failed. CASA exits normally when a task inside',
+        '# it fails, so check the logs too.',
+        'CASA=' + casapath,
+        'JOBS=${ATARI_JOBS:-' + str(jobs) + '}',
+        'run_one() {',
+        '    if "$CASA" --nologger --nogui --log2term --nologfile -c "$2" > "$1" 2>&1; then',
+        '        echo "done    $2"',
+        '    else',
+        '        echo "FAILED  $2 (log: $1)"',
+        '        return 1',
+        '    fi',
+        '}',
+        'export -f run_one',
+        'export CASA',
+        'echo "Calibrating ' + str(len(scripts)) + ' splits, $JOBS at a time..."',
+        "xargs -P \"$JOBS\" -L 1 bash -c 'run_one \"$0\" \"$1\"' <<'SPLITS'",
+    ]
+    for script in scripts:
+        split = os.path.basename(os.path.dirname(script))
+        log = os.path.join(logdir, '1GC_' + split + '.log')
+        lines.append("'" + log + "' '" + script + "'")
+    lines += [
+        'SPLITS',
+        'status=$?',
+        '[ $status -eq 0 ] && echo "All splits calibrated." || echo "Calibration failed for at least one split (see FAILED above)."',
+        'exit $status',
+    ]
+    with open(script_name, 'w') as f:
+        f.write('\n'.join(lines) + '\n')
 
 
 def write_flag_antennas(vis, antenna, script_name):
