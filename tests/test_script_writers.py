@@ -47,6 +47,7 @@ def test_first_generation_calibration_recipe(tmp_path):
         'fluxscale',
         'applycal', 'applycal', 'applycal',  # flux cal, phase cal, target
         'flagdata', 'flagdata',
+        'statwt',                            # last: weights from the final calibrated data
     ]
 
     for name, kwargs in calls:
@@ -57,6 +58,14 @@ def test_first_generation_calibration_recipe(tmp_path):
 
     applied = [kwargs['field'] for name, kwargs in calls if name == 'applycal']
     assert applied == ['3c286', '1331+305', 'target']
+
+    # Each target visibility is weighted by the measured scatter of the
+    # calibrated data, so noisy antennas count for less instead of equally
+    # (2026-09-18 p060: image noise 8-36% lower, fluxes unchanged to 0.1%).
+    # Target only: a bright calibrator's real signal would inflate the scatter.
+    name, kwargs = calls[-1]
+    assert name == 'statwt'
+    assert kwargs == {'vis': '/obs/target_spw0.ms', 'datacolumn': 'corrected', 'field': 'target'}
 
     # The first flagging runs before calibration, so on DATA (CASA's default);
     # the final flagging must look at the calibrated data, where antenna gain

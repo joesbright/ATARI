@@ -15,6 +15,7 @@ applycal(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',field='0038+416',gaint
 applycal(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',field='AT2026yeh',gaintable=['{WORKDIR}/AT2026yeh_spw0/CALIBRATION_TABLES/3c48.fluxscale','{WORKDIR}/AT2026yeh_spw0/CALIBRATION_TABLES/3c48.K0','{WORKDIR}/AT2026yeh_spw0/CALIBRATION_TABLES/3c48.B0','{WORKDIR}/AT2026yeh_spw0/CALIBRATION_TABLES/3c48.G0'],gainfield=['0038+416', '', ''],interp=['linear', '', 'linear'],calwt=False)
 flagdata(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',mode='tfcrop',datacolumn='corrected')
 flagdata(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',mode='rflag',datacolumn='corrected')
+statwt(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',datacolumn='corrected',field='AT2026yeh')
 ##### AT2026yeh : Spectral Window 1 ######
 flagdata(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',mode='tfcrop')
 flagdata(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',mode='rflag')
@@ -30,6 +31,7 @@ applycal(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',field='0038+416',gaint
 applycal(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',field='AT2026yeh',gaintable=['{WORKDIR}/AT2026yeh_spw1/CALIBRATION_TABLES/3c48.fluxscale','{WORKDIR}/AT2026yeh_spw1/CALIBRATION_TABLES/3c48.K0','{WORKDIR}/AT2026yeh_spw1/CALIBRATION_TABLES/3c48.B0','{WORKDIR}/AT2026yeh_spw1/CALIBRATION_TABLES/3c48.G0'],gainfield=['0038+416', '', ''],interp=['linear', '', 'linear'],calwt=False)
 flagdata(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',mode='tfcrop',datacolumn='corrected')
 flagdata(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',mode='rflag',datacolumn='corrected')
+statwt(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',datacolumn='corrected',field='AT2026yeh')
 ##### AT2026yeh : Spectral Window 2 ######
 flagdata(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',mode='tfcrop')
 flagdata(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',mode='rflag')
@@ -45,6 +47,7 @@ applycal(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',field='0038+416',gaint
 applycal(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',field='AT2026yeh',gaintable=['{WORKDIR}/AT2026yeh_spw2/CALIBRATION_TABLES/3c48.fluxscale','{WORKDIR}/AT2026yeh_spw2/CALIBRATION_TABLES/3c48.K0','{WORKDIR}/AT2026yeh_spw2/CALIBRATION_TABLES/3c48.B0','{WORKDIR}/AT2026yeh_spw2/CALIBRATION_TABLES/3c48.G0'],gainfield=['0038+416', '', ''],interp=['linear', '', 'linear'],calwt=False)
 flagdata(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',mode='tfcrop',datacolumn='corrected')
 flagdata(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',mode='rflag',datacolumn='corrected')
+statwt(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',datacolumn='corrected',field='AT2026yeh')
 ##### AT2026yeh : Spectral Window 3 ######
 flagdata(vis='{WORKDIR}/AT2026yeh_spw3/AT2026yeh_spw3.ms',mode='tfcrop')
 flagdata(vis='{WORKDIR}/AT2026yeh_spw3/AT2026yeh_spw3.ms',mode='rflag')
@@ -60,3 +63,4 @@ applycal(vis='{WORKDIR}/AT2026yeh_spw3/AT2026yeh_spw3.ms',field='0038+416',gaint
 applycal(vis='{WORKDIR}/AT2026yeh_spw3/AT2026yeh_spw3.ms',field='AT2026yeh',gaintable=['{WORKDIR}/AT2026yeh_spw3/CALIBRATION_TABLES/3c48.fluxscale','{WORKDIR}/AT2026yeh_spw3/CALIBRATION_TABLES/3c48.K0','{WORKDIR}/AT2026yeh_spw3/CALIBRATION_TABLES/3c48.B0','{WORKDIR}/AT2026yeh_spw3/CALIBRATION_TABLES/3c48.G0'],gainfield=['0038+416', '', ''],interp=['linear', '', 'linear'],calwt=False)
 flagdata(vis='{WORKDIR}/AT2026yeh_spw3/AT2026yeh_spw3.ms',mode='tfcrop',datacolumn='corrected')
 flagdata(vis='{WORKDIR}/AT2026yeh_spw3/AT2026yeh_spw3.ms',mode='rflag',datacolumn='corrected')
+statwt(vis='{WORKDIR}/AT2026yeh_spw3/AT2026yeh_spw3.ms',datacolumn='corrected',field='AT2026yeh')
