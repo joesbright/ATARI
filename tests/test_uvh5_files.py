@@ -275,14 +275,16 @@ def test_converted_files_are_grouped_by_lo_in_time_order():
                              '/d/uvh5_61317_13265_5561187_0038+416_0001_LoB.ms']
 
 
-@pytest.mark.parametrize('sizes, available, cores, expected', [
-    ([40e9] * 4, 185e9, 12, (3, 4)),   # 2026-09-18 p060: 3 of the 40 GB LOs fit in 75% of memory
-    ([5e9] * 4, 185e9, 12, (4, 3)),    # small LOs: all at once, cores shared
-    ([300e9] * 4, 185e9, 12, (1, 12)), # too big for memory: one at a time (aoflagger reads from disk)
-    ([40e9] * 2, 185e9, 12, (2, 6)),   # fewer LOs than would fit
+@pytest.mark.parametrize('sizes, available, expected', [
+    ([40e9] * 4, 185e9, 4),    # 2026-09-18 p060: aoflagger needs ~0.8 x 40 GB each; all 4 fit (as tested)
+    ([60e9] * 4, 185e9, 2),    # a longer observation: only 2 at a time
+    ([5e9] * 4, 185e9, 4),     # small LOs: all at once
+    ([300e9] * 4, 185e9, 1),   # too big for memory: one at a time (aoflagger reads from disk)
+    ([40e9] * 2, 185e9, 2),    # fewer LOs than would fit
 ])
-def test_flagging_jobs_fit_in_memory(sizes, available, cores, expected):
-    # aoflagger reads a whole LO into memory when it fits, and each process
-    # checks free memory only for itself when it starts, so ATARI limits how
-    # many run at once; cores are shared between them with -j.
-    assert uvh5_files.flagging_jobs(sizes, available, cores) == expected
+def test_flagging_jobs_fit_in_memory(sizes, available, expected):
+    # aoflagger reads a whole LO into memory when it fits (needing ~0.8 x the
+    # MS size: 31.8 GB for a 40 GB LO on 2026-09-18), and each process checks
+    # free memory only for itself when it starts, so ATARI limits how many run
+    # at once. Threads are not fixed: a job left running alone uses every core.
+    assert uvh5_files.flagging_jobs(sizes, available) == expected

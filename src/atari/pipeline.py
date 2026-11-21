@@ -204,10 +204,11 @@ def main(argv=None):
         logger.info('Flagged the data that was exactly zero (dead antennas, feeds or LOs): '
                     + ', '.join(lo + ' ' + format(100 * f, '.1f') + '%' for lo, f in zip(los, fractions)))
 
-        # As many aoflaggers at once as fit in memory, sharing the cores.
-        aoflagger_jobs, threads = flagging_jobs([folder_size(work[lo]) for lo in los], available_memory(),
-                                                os.cpu_count() or 1)
-        run_parallel([(lo, 'aoflagger -v -j ' + str(threads) + ' ' + work[lo],
+        # As many aoflaggers at once as fit in memory. Threads are not fixed:
+        # with -j set per job, the last LO kept a share of the cores while it
+        # ran alone (26 instead of ~17 min on 2026-09-18).
+        aoflagger_jobs = flagging_jobs([folder_size(work[lo]) for lo in los], available_memory())
+        run_parallel([(lo, 'aoflagger -v ' + work[lo],
                        os.path.join(logdir, 'aoflagger_' + lo + '.log'), ()) for lo in los],
                      'Flagging each LO with aoflagger', aoflagger_jobs, line_buffered=True, cwd=outdir)
 
