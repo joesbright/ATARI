@@ -199,6 +199,50 @@ def run(command, logfile, description, outputs=(), line_buffered=False, cwd=None
     logger.info(description + ' done (' + _duration(time.monotonic() - start) + ')')
 
 
+def run_parallel(jobs, description, max_jobs, line_buffered=False, cwd=None):
+    """Run several shell commands at once, up to max_jobs at a time, each
+    with its output going to its own log file. jobs is a list of
+    (label, command, logfile, outputs), e.g. one per LO. The terminal gets one
+    line when the step starts and one when it is done. If any job fails (exit
+    status, or one of its outputs missing), stop with the end of the first
+    failed job's log, after naming any others that failed. line_buffered and
+    cwd are as for run()."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    logger.info(description + ' (' + str(len(jobs)) + ' jobs, up to ' + str(max_jobs)
+                + ' at a time; logs in ' + str(os.path.dirname(str(jobs[0][2]))) + ')...')
+    start = time.monotonic()
+    env = {name: value for name, value in os.environ.items() if name != 'VIRTUAL_ENV'}
+
+    def one(job):
+        label, command, logfile, outputs = job
+        if line_buffered and shutil.which('stdbuf'):
+            command = 'stdbuf -oL -eL ' + command
+        logger.debug('Running (' + label + '): ' + command)
+        with open(logfile, 'w') as f:
+            result = subprocess.run(command, shell=True, stdout=f, stderr=subprocess.STDOUT, env=env, cwd=cwd)
+        if result.returncode != 0:
+            return 'exit status ' + str(result.returncode)
+        for output in outputs:
+            if not os.path.exists(output):
+                return str(output) + ' was not made'
+        return None
+
+    with ThreadPoolExecutor(max_workers=max_jobs) as pool:
+        reasons = list(pool.map(one, jobs))
+    failed = [(job, reason) for job, reason in zip(jobs, reasons) if reason]
+    for (label, _, logfile, _), reason in failed[1:]:
+        logger.error(description + ' also failed for ' + label + ' (' + reason + '; log: ' + str(logfile) + ')')
+    if failed:
+        (label, _, logfile, _), reason = failed[0]
+        with open(logfile, errors='replace') as f:
+            tail = f.readlines()[-TAIL_LINES:]
+        logger.error(description + ' failed for ' + label + ' (' + reason + '). End of ' + str(logfile) + ':\n'
+                     + ''.join(tail).rstrip())
+        sys.exit(1)
+    logger.info(description + ' done (' + _duration(time.monotonic() - start) + ')')
+
+
 def _fail(description, logfile, reason):
     with open(logfile, errors='replace') as f:
         tail = f.readlines()[-TAIL_LINES:]

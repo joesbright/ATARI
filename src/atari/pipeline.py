@@ -12,8 +12,9 @@ import math
 from atari import fix_scans
 from atari.calibrators import calibrator_problems, classify_field
 from atari.cli import input_kind, output_folder, parse_args, resolve_refant
-from atari.log import Progress, logger, run, setup_logging, setup_worker
-from atari.uvh5_files import final_ms_name, find_converted_ms, find_fields, find_time_ids, read_lo
+from atari.log import Progress, logger, run, run_parallel, setup_logging, setup_worker
+from atari.uvh5_files import (final_ms_name, find_converted_ms, find_fields, find_time_ids, flagging_jobs,
+                              group_by_lo, read_lo)
 from atari.write_casa_scripts import channel_selection, write_flag_antennas, write_parallel_calibration
 import glob
 from functools import partial
@@ -27,6 +28,20 @@ def remove(*paths):
             shutil.rmtree(path)
         elif os.path.exists(path):
             os.remove(path)
+
+
+def folder_size(path):
+    # Total size in bytes of the files in a folder (e.g. a measurement set).
+    return sum(os.path.getsize(os.path.join(root, name)) for root, _, names in os.walk(path) for name in names)
+
+
+def available_memory():
+    # Memory available for new processes, in bytes (Linux: MemAvailable).
+    with open('/proc/meminfo') as f:
+        for line in f:
+            if line.startswith('MemAvailable:'):
+                return int(line.split()[1]) * 1024
+    return os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_AVPHYS_PAGES')
 
 
 def flag_zeros(ms):
@@ -109,8 +124,7 @@ def main(argv=None):
     gc_script = os.path.join(outdir, '1GC_.py')
     gc_runner = os.path.join(outdir, '1GC_.sh')
     image_script = os.path.join(outdir, 'image_.sh')
-    concat_script = os.path.join(outdir, 'concat_command.py')
-    avg_script = os.path.join(outdir, 'avg_command.py')
+    combine_script = os.path.join(outdir, 'combine_command.py')
     flag_script = os.path.join(outdir, 'flag_command.py')
 
     # Scripts already here belong to an earlier run, whose split folders
@@ -122,7 +136,8 @@ def main(argv=None):
             sys.exit(1)
 
     # Temporary scripts a crashed run may have left.
-    remove(concat_script, avg_script, flag_script)
+    remove(combine_script, flag_script, *glob.glob(os.path.join(outdir, 'concat_command_Lo?.py')),
+           *glob.glob(os.path.join(outdir, 'avg_command_Lo?.py')))
 
     # different file managing depending on input, but we want to end up with a measurement set
     # with a consistent file structure.
@@ -142,59 +157,80 @@ def main(argv=None):
             for field in pool.imap_unordered(partial(parallel_file_conversion, mydata=mydata), timeIDs):
                 progress.update(field)
 
-        final_concat = find_converted_ms(mydata)
-
-        with table(final_concat[0] + '/ANTENNA/', ack=False) as t:
+        by_lo = group_by_lo(find_converted_ms(mydata))
+        with table(next(iter(by_lo.values()))[0] + '/ANTENNA/', ack=False) as t:
             ant_names = t.getcol('NAME')
 
         flagants = antenna_ids(ant_names, flagants)
 
-        f = open(concat_script, 'w')
-        f.write('concat(vis=' + str(final_concat) + ', concatvis=\'' + mydata + '/master_ms_tmp.ms\')')
+        # Each LO is combined, zero-flagged, flagged with aoflagger and
+        # averaged on its own, the LOs in parallel (issue #40): four ~40 GB
+        # MSs instead of one ~160 GB one, so the single-threaded CASA steps run
+        # side by side and each LO fits in memory for aoflagger. aoflagger
+        # treats each spectral window on its own, so the flags are the same as
+        # for one combined MS (2026-09-18 p060: 0.000% of samples differ). The
+        # averaged LOs are then combined into the final MS, so everything
+        # after this is unchanged.
+        los = list(by_lo)
+        tmp = {lo: os.path.join(mydata, lo + '_tmp.ms') for lo in los}
+        tmp2 = {lo: os.path.join(mydata, lo + '_tmp2.ms') for lo in los}  # without --flagants antennas
+        avg = {lo: os.path.join(mydata, lo + '_avg.ms') for lo in los}
+        work = tmp2 if flagants != '' else tmp
+        casa = casapath + ' --nologger --log2term --nologfile -c '
+
+        jobs = []
+        for lo in los:
+            script = os.path.join(outdir, 'concat_command_' + lo + '.py')
+            with open(script, 'w') as f:
+                f.write('concat(vis=' + str(by_lo[lo]) + ', concatvis=\'' + tmp[lo] + '\')')
+                if flagants != '':
+                    f.write('\nmstransform(vis=\'' + tmp[lo] + '\', outputvis=\'' + tmp2[lo] + '\', antenna=\'!'
+                            + flagants + '\', datacolumn=\'DATA\')')
+            jobs.append((lo, casa + script, os.path.join(logdir, 'casa_concat_' + lo + '.log'), [tmp[lo], work[lo]]))
+        run_parallel(jobs, 'Combining the scans of each LO with CASA', len(los), cwd=logdir)
+        # The converted per-scan, per-LO files are now all in the per-LO MSs
+        # (run_parallel stops above if a concat failed). The raw uvh5 files
+        # can always be converted again, so free their space now.
+        converted = [path for paths in by_lo.values() for path in paths]
+        remove(*converted)
         if flagants != '':
-            f.write('\n')
-            f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + mydata + '/master_ms_tmp2.ms\', antenna=\'!' + flagants + '\', datacolumn=\'DATA\')')
-        f.close()
-        concat_outputs = [mydata + '/master_ms_tmp.ms']
-        if flagants != '':
-            concat_outputs.append(mydata + '/master_ms_tmp2.ms')
-        run(casapath + ' --nologger --log2term --nologfile -c ' + concat_script,
-            os.path.join(logdir, 'casa_concat.log'),
-            'Combining spectral chunks with CASA',
-            outputs=concat_outputs, cwd=logdir)
-        # The converted per-scan, per-LO files are now all in the combined
-        # MS (run stops above if concat failed). The raw uvh5 files can always
-        # be converted again, so free their space before the next steps.
-        remove(*final_concat)
-        logger.debug('Deleted the ' + str(len(final_concat)) + ' converted measurement sets')
+            remove(*tmp.values())
+        logger.debug('Deleted the ' + str(len(converted)) + ' converted measurement sets')
 
         # Before aoflagger and the channel averaging, so zeros are never
         # averaged together with real data.
-        flag_zeros(concat_outputs[-1])
+        with multiprocessing.Pool(len(los), initializer=setup_worker, initargs=(logfile,)) as pool:
+            fractions = pool.map(fix_scans.flag_zero_visibilities, [work[lo] for lo in los])
+        logger.info('Flagged the data that was exactly zero (dead antennas, feeds or LOs): '
+                    + ', '.join(lo + ' ' + format(100 * f, '.1f') + '%' for lo, f in zip(los, fractions)))
 
-        run('aoflagger -v ' + concat_outputs[-1],
-            os.path.join(logdir, 'aoflagger.log'),
-            'Flagging with aoflagger',
-            line_buffered=True)
+        # As many aoflaggers at once as fit in memory, sharing the cores.
+        aoflagger_jobs, threads = flagging_jobs([folder_size(work[lo]) for lo in los], available_memory(),
+                                                os.cpu_count() or 1)
+        run_parallel([(lo, 'aoflagger -v -j ' + str(threads) + ' ' + work[lo],
+                       os.path.join(logdir, 'aoflagger_' + lo + '.log'), ()) for lo in los],
+                     'Flagging each LO with aoflagger', aoflagger_jobs, line_buffered=True, cwd=outdir)
 
-        if flagants != '':
-            fix_scans.fix_scans(mydata + '/master_ms_tmp2.ms')
-        else:
-            fix_scans.fix_scans(mydata + '/master_ms_tmp.ms')
+        jobs = []
+        for lo in los:
+            script = os.path.join(outdir, 'avg_command_' + lo + '.py')
+            with open(script, 'w') as f:
+                f.write('mstransform(vis=\'' + work[lo] + '\', outputvis=\'' + avg[lo]
+                        + '\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
+            jobs.append((lo, casa + script, os.path.join(logdir, 'casa_average_' + lo + '.log'), [avg[lo]]))
+        run_parallel(jobs, 'Averaging the channels of each LO with CASA', len(los), cwd=logdir)
+        remove(*work.values())
 
-        f = open(avg_script, 'w')
-        if flagants != '':
-            f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp2.ms\', outputvis=\'' + final_ms + '\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
-        else:
-            f.write('mstransform(vis=\'' + mydata + '/master_ms_tmp.ms\', outputvis=\'' + final_ms + '\', chanaverage=True, chanbin=' + chanbin + ' , datacolumn=\'DATA\')')
-        f.close()
-
-        run(casapath + ' --nologger --log2term --nologfile -c ' + avg_script,
-            os.path.join(logdir, 'casa_average.log'),
-            'Averaging channels with CASA',
+        # Combine the averaged LOs (LoA-LoD become spw0-spw3, in this order),
+        # sorted by time so that the scans are renumbered as before.
+        with open(combine_script, 'w') as f:
+            f.write('concat(vis=' + str([avg[lo] for lo in los]) + ', concatvis=\'' + final_ms + '\', timesort=True)')
+        run(casa + combine_script, os.path.join(logdir, 'casa_combine.log'), 'Combining the averaged LOs with CASA',
             outputs=[final_ms], cwd=logdir)
-        remove(mydata + '/master_ms_tmp.ms', mydata + '/master_ms_tmp2.ms',
-               avg_script, concat_script)
+        remove(*avg.values())
+        remove(*glob.glob(os.path.join(outdir, 'concat_command_Lo?.py')),
+               *glob.glob(os.path.join(outdir, 'avg_command_Lo?.py')), combine_script)
+        fix_scans.fix_scans(final_ms)
 
         # A few zeros can be left unflagged after aoflagger and the
         # averaging (11 of 85,000 samples in the test data), so check again.
