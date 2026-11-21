@@ -25,7 +25,7 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (131 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 131 run:
+`uv run pytest -rs` (132 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 132 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
@@ -52,6 +52,7 @@ Flow:
 2. **Field classification** (`atari.calibrators.classify_field`):
    - `Stay_put` (any case; `SKIP_FIELDS`) → skipped completely. These scans are recorded while the sources are below the horizon.
    - 3c286, 3c48 or 3c147 (any case; `FLUX_CALIBRATORS`) → flux calibrator (hard-coded).
+     Every flux calibrator in the MS is used (tracks often have one at each end, e.g. 3C48 then 3C147; issue #44): all are copied into each split, each gets its own `setjy` model and `applycal` (its own `gainfield`), G0/K0/B0/G1 are solved on all together (`field='3C48,3C147'`; B0 per scan, interpolated linearly in time) and `fluxscale` uses all as references. Tables are named after them all (`3C48_3C147.G0`); with one flux calibrator the scripts are as before. Every flux calibrator is imaged.
    - Name substring-matched by `atari.calibrators.match_calibrators` against `src/atari/data/calibrator_names.dat` plus the optional `--calibrators` file → gain calibrator.
    - Anything else → target.
    - Each target is paired with its nearest gain calibrator.

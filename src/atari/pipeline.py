@@ -306,8 +306,7 @@ def main(argv=None):
         kind = classify_field(fields[key], args.calibrators)
         fields[key] = [fields[key], kind]
         if kind == 'FLUX_CAL':
-            fcal_name = fields[key][0]
-            logger.info('Flux calibrator: ' + str(fcal_name))
+            logger.info('Flux calibrator: ' + str(fields[key][0]))
             myintents.append('#FCAL')
         elif kind == 'PHASE_CAL':
             myintents.append('#GCAL')
@@ -334,6 +333,9 @@ def main(argv=None):
                         ordered_pcal_fields.append(key2)
         if fields[key][1] == 'FLUX_CAL':
             fcal_field.append(key)
+    # Every flux calibrator is used (a track often has one at each end;
+    # issue #44), in field order.
+    fcal_names = [fields[key][0] for key in fcal_field]
 
     myintents = np.array(myintents)
     myintents = np.asarray(['AMPLITUDE'])
@@ -359,7 +361,7 @@ def main(argv=None):
                 if item == fields[key][0]:
                     target_name = item
                     x = t.getcol('SPECTRAL_WINDOW_ID')[i]
-                    y = [key, field_matching[fields[key][0]], fcal_field[0]]
+                    y = [key, field_matching[fields[key][0]]] + fcal_field
                     t1 = casacore.tables.taql('SELECT FROM $tm WHERE (DATA_DESC_ID IN [SELECT SPECTRAL_WINDOW_ID FROM ::DATA_DESCRIPTION WHERE SPECTRAL_WINDOW_ID == $x])')
                     t2 = casacore.tables.taql('SELECT FROM $t1 WHERE FIELD_ID IN $y')
                     newdir  = '/'.join(mydata.split('/')[:-1]) + '/' + fields[key][0] + '_' + 'spw' + str(x) + '/'
@@ -392,7 +394,7 @@ def main(argv=None):
 
                     FGC.first_generation_calibration(outfile,
                                                      item,
-                                                     fcal_name,
+                                                     fcal_names,
                                                      fields[field_matching[item]][0],
                                                      refant,
                                                      split_script,
@@ -403,10 +405,10 @@ def main(argv=None):
 
                     FGC.image_all_fields(outfile,
                                          key,
-                                         fcal_field[0],
+                                         fcal_field,
                                          field_matching[fields[key][0]],
                                          item,
-                                         fcal_name,
+                                         fcal_names,
                                          fields[field_matching[item]][0],
                                          image_script,
                                          imsize,

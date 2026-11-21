@@ -8,10 +8,10 @@ BRIGGS_ROBUST = 0.7
 
 def write_wsclean(vis, 
                 target,
-                flux_cal,
+                flux_cals,
                 phase_cal,
                 target_name,
-                flux_cal_name,
+                flux_cal_names,
                 phase_cal_name,
                 script_name,
                 size,
@@ -21,8 +21,12 @@ def write_wsclean(vis,
     f = open(script_name, 'a')
     f.write('#####' + str(vis) + '#####\n')
 
-    names = [target_name, flux_cal_name, phase_cal_name]
-    for i, field in enumerate([target, flux_cal, phase_cal]):
+    # The target, every flux calibrator (field IDs and names, in the same
+    # order; a single one may be given on its own) and the gain calibrator.
+    if not isinstance(flux_cals, (list, tuple)):
+        flux_cals, flux_cal_names = [flux_cals], [flux_cal_names]
+    names = [target_name] + list(flux_cal_names) + [phase_cal_name]
+    for i, field in enumerate([target] + list(flux_cals) + [phase_cal]):
 
         args = 'wsclean '
         args += '-niter 50000 '
