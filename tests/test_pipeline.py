@@ -205,11 +205,17 @@ def test_setup_from_uvh5(tmp_path, monkeypatch, capfd):
     assert '\tINFO\t' not in terminal  # CASA log lines
     assert 'phased-up' not in terminal  # pyuvdata's warning, once per file
     logs = data / 'logs'
-    for name in ['atari_setup.log', 'casa_concat.log', 'aoflagger.log', 'casa_average.log']:
+    # Each LO is combined, flagged and averaged on its own (in parallel, issue
+    # #40), then the averaged LOs are combined into the final MS.
+    names = ['atari_setup.log', 'casa_combine.log']
+    for lo in ['LoA', 'LoB', 'LoC', 'LoD']:
+        names += ['casa_concat_' + lo + '.log', 'aoflagger_' + lo + '.log', 'casa_average_' + lo + '.log']
+    for name in names:
         assert (logs / name).stat().st_size > 0, name
     # Once per conversion process, not once per file.
     assert 1 <= (logs / 'atari_setup.log').read_text().count('phased-up') <= os.cpu_count()
-    assert 'virtualenv' not in (logs / 'casa_concat.log').read_text()
+    assert 'virtualenv' not in (logs / 'casa_concat_LoA.log').read_text()
+    assert not list(data.glob('*_tmp*.ms')), 'temporary per-LO measurement sets left behind'
     # The final measurement set is named after the first scan's MJD and the
     # target, and the converted per-scan, per-LO files it was combined from
     # are deleted.

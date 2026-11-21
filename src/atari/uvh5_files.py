@@ -50,6 +50,29 @@ def find_converted_ms(mydata):
     return sorted(glob.glob(mydata + '/uvh5_*_Lo?.ms'))
 
 
+def group_by_lo(paths):
+    # The converted per-scan, per-LO measurement sets grouped by LO (LoA,
+    # LoB, ...), each group in time order: names start with the time ID,
+    # whose fixed-width fields sort in time order.
+    groups = {}
+    for path in sorted(paths):
+        groups.setdefault(os.path.basename(path)[-6:-3], []).append(path)
+    return dict(sorted(groups.items()))
+
+
+def flagging_jobs(sizes, available, fraction=0.75, need=0.8):
+    # How many aoflagger runs (one per LO MS, sizes in bytes) may run at once.
+    # aoflagger reads a whole MS into memory when it fits, needing about
+    # `need` x its size (the visibilities; 31.8 GB for a 40 GB LO on
+    # 2026-09-18), and each process checks free memory only for itself when
+    # it starts, so only as many as fit in `fraction` of the available memory
+    # run together (at least one: if one doesn't fit, aoflagger reads it from
+    # disk instead). Threads are left to aoflagger (all cores each) and shared
+    # by the system, so a job left running alone gets every core.
+    fit = int(fraction * available // (need * max(sizes))) if sizes else 1
+    return max(1, min(len(sizes), fit))
+
+
 def final_ms_name(mydata, extra_calibrators=None):
     # <MJD>_<targets>.ms for the combined, flagged and averaged measurement
     # set: the MJD of the first scan, so an observation running past midnight

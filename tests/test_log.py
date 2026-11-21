@@ -221,3 +221,43 @@ def test_run_can_write_the_log_line_by_line(logdir, monkeypatch):
     log.run('aoflagger -v obs.ms', logdir / 'aoflagger.log', 'Flagging with aoflagger', line_buffered=True)
 
     assert commands == ['stdbuf -oL -eL aoflagger -v obs.ms']
+
+
+def test_run_parallel_runs_jobs_together_with_one_log_each(logdir, capfd):
+    # Per-LO steps (combine, aoflagger, average) run several programs at once.
+    # Each writes its own log; the terminal gets one line when the step starts
+    # and one when it is done, not one per job.
+    import time
+    log.setup_logging(logdir)
+    jobs = [('Lo' + x, 'echo working on Lo' + x + '; sleep 1', logdir / ('step_Lo' + x + '.log'), ())
+            for x in 'ABC']
+    start = time.monotonic()
+    log.run_parallel(jobs, 'Flagging each LO with aoflagger', max_jobs=3)
+    assert time.monotonic() - start < 2.5, 'the three 1 s jobs did not run in parallel'
+    for x in 'ABC':
+        assert (logdir / ('step_Lo' + x + '.log')).read_text() == 'working on Lo' + x + '\n'
+    out = capfd.readouterr().out
+    assert out.count('Flagging each LO with aoflagger') == 2  # started, and done
+    assert 'done' in out
+
+
+def test_run_parallel_limits_how_many_run_at_once(logdir):
+    import time
+    log.setup_logging(logdir)
+    jobs = [('Lo' + x, 'sleep 1', logdir / ('step_Lo' + x + '.log'), ()) for x in 'ABCD']
+    start = time.monotonic()
+    log.run_parallel(jobs, 'Averaging each LO', max_jobs=2)
+    assert time.monotonic() - start >= 1.9, 'more than 2 jobs ran at once'
+
+
+def test_run_parallel_stops_with_the_failed_jobs_log(logdir, capfd):
+    log.setup_logging(logdir)
+    jobs = [('LoA', 'echo fine', logdir / 'step_LoA.log', ()),
+            ('LoB', 'echo something broke in LoB; exit 3', logdir / 'step_LoB.log', ()),
+            ('LoC', 'echo fine', logdir / 'step_LoC.log', [logdir / 'never_made.ms'])]
+    with pytest.raises(SystemExit):
+        log.run_parallel(jobs, 'Combining each LO with CASA', max_jobs=3)
+    out = capfd.readouterr().out
+    assert 'Combining each LO with CASA failed for LoB' in out
+    assert 'something broke in LoB' in out
+    assert 'LoC' in out and 'never_made.ms' in out  # a missing output is a failure too

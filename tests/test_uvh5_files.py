@@ -255,3 +255,36 @@ def test_tuning_missing_from_every_lo_is_filled(tmp_path):
     assert np.array_equal(los[0].freq_array, complete.freq_array)
     for uvd in los:
         assert tuning_flags(uvd, TUNINGS)[1]
+
+
+def test_converted_files_are_grouped_by_lo_in_time_order():
+    # Setup combines, flags and averages each LO separately and in parallel
+    # (issue #40), so the converted per-scan files are grouped by LO, each
+    # group in time order (the time ID sorts by time).
+    paths = ['/d/uvh5_61317_13265_5561187_0038+416_0001_LoB.ms',
+             '/d/uvh5_61317_11988_5522216_3c48_0001_LoA.ms',
+             '/d/uvh5_61317_11988_5522216_3c48_0001_LoB.ms',
+             '/d/uvh5_61317_13265_5561187_0038+416_0001_LoA.ms',
+             '/d/uvh5_61317_13928_5581420_AT2026yeh_0001_LoA.ms']
+    groups = uvh5_files.group_by_lo(paths)
+    assert list(groups) == ['LoA', 'LoB']
+    assert groups['LoA'] == ['/d/uvh5_61317_11988_5522216_3c48_0001_LoA.ms',
+                             '/d/uvh5_61317_13265_5561187_0038+416_0001_LoA.ms',
+                             '/d/uvh5_61317_13928_5581420_AT2026yeh_0001_LoA.ms']
+    assert groups['LoB'] == ['/d/uvh5_61317_11988_5522216_3c48_0001_LoB.ms',
+                             '/d/uvh5_61317_13265_5561187_0038+416_0001_LoB.ms']
+
+
+@pytest.mark.parametrize('sizes, available, expected', [
+    ([40e9] * 4, 185e9, 4),    # 2026-09-18 p060: aoflagger needs ~0.8 x 40 GB each; all 4 fit (as tested)
+    ([60e9] * 4, 185e9, 2),    # a longer observation: only 2 at a time
+    ([5e9] * 4, 185e9, 4),     # small LOs: all at once
+    ([300e9] * 4, 185e9, 1),   # too big for memory: one at a time (aoflagger reads from disk)
+    ([40e9] * 2, 185e9, 2),    # fewer LOs than would fit
+])
+def test_flagging_jobs_fit_in_memory(sizes, available, expected):
+    # aoflagger reads a whole LO into memory when it fits (needing ~0.8 x the
+    # MS size: 31.8 GB for a 40 GB LO on 2026-09-18), and each process checks
+    # free memory only for itself when it starts, so ATARI limits how many run
+    # at once. Threads are not fixed: a job left running alone uses every core.
+    assert uvh5_files.flagging_jobs(sizes, available) == expected
