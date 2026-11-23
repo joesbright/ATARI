@@ -121,9 +121,12 @@ def write_bandpass(vis,
                    gaintype='G', 
                    gaintable=[], 
                    bandtype='B',
-                   combine=None):
+                   combine=None,
+                   solnorm=None):
     # combine=None leaves CASA's default (combine='scan': one bandpass
     # averaged over every scan); combine='' solves once per scan.
+    # solnorm=True normalises each solution to mean amplitude 1, so it carries
+    # only the shape; None leaves CASA's default (False).
     
     f = open(script_name, 'a')
 
@@ -147,6 +150,8 @@ def write_bandpass(vis,
     args += bandtype + '\''
     if combine is not None:
         args += ',combine=\'' + combine + '\''
+    if solnorm is not None:
+        args += ',solnorm=' + str(solnorm)
 
     f.write('bandpass(' + args + ')\n')
     f.close()

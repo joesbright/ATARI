@@ -273,9 +273,16 @@ def test_two_flux_calibrators_are_both_used(tmp_path, monkeypatch):
             if task in ('gaincal', 'bandpass') and field_set(a['field']) != {gain} and field_set(a['field']) != flux:
                 problems.append(name + ': ' + task + ' (' + os.path.basename(a['caltable']) + ') solved on '
                                 + str(sorted(field_set(a['field']))))
+        # The second calibrator is there for bandpass stability over a long
+        # track; the flux scale comes from the most stable one (3C48 rather
+        # than 3C147 here), and the other is measured on that scale as a check.
         for task, a in calls:
-            if task == 'fluxscale' and field_set(a['reference']) != flux:
-                problems.append(name + ': fluxscale reference ' + str(sorted(field_set(a['reference']))))
+            if task == 'fluxscale' and (field_set(a['reference']) != {'3c48'}
+                                        or field_set(a['transfer']) != {gain, '3C147'}):
+                problems.append(name + ': fluxscale reference ' + str(sorted(field_set(a['reference'])))
+                                + ', transfer ' + str(sorted(field_set(a['transfer']))))
+            if task == 'bandpass' and a.get('solnorm') is not True:
+                problems.append(name + ': bandpass not normalised')
         for source in flux:
             if not any(task == 'applycal' and a['field'] == source and a['gainfield'][0] == source
                        for task, a in calls):

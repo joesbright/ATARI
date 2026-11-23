@@ -3,6 +3,12 @@ from importlib.resources import files
 # Compared in lower case, since observations name them e.g. 3c48 or 3C48.
 FLUX_CALIBRATORS = {'3c286', '3c48', '3c147'}
 
+# Most stable first: in Perley & Butler (2017) 3C286 is constant, while 3C48
+# and 3C147 vary by a few percent (3C147 read 3-12% above its 2017 model
+# against 3C286 on p060 2026-10-27 and 11-06). The flux scale comes from the
+# first of these in the observation.
+FLUX_SCALE_PRIORITY = ['3c286', '3c48', '3c147']
+
 # Scans that are not calibrated or imaged at all, compared in lower case.
 # Stay_put scans are recorded while the sources are below the horizon.
 SKIP_FIELDS = {'stay_put'}
@@ -50,3 +56,9 @@ def match_calibrators(source, extra_calibrators=None):
         iscal = True
 
     return(iscal)
+
+
+def flux_reference(flux_calibrators):
+    """The flux calibrator that sets the flux scale: the most stable one
+    observed (FLUX_SCALE_PRIORITY), keeping its name as given."""
+    return min(flux_calibrators, key=lambda name: FLUX_SCALE_PRIORITY.index(name.lower()))
