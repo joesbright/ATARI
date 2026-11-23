@@ -40,6 +40,7 @@ def test_first_generation_calibration_recipe(tmp_path):
 
     calls = casa_calls(script)
     assert [name for name, _ in calls] == [
+        'flagdata',                          # above the elevation limit, first
         'flagdata', 'flagdata',              # tfcrop, rflag
         'setjy',
         'gaincal', 'gaincal', 'bandpass',    # G0, K0, B0
@@ -72,9 +73,16 @@ def test_first_generation_calibration_recipe(tmp_path):
     # and bandpass differences no longer hide outliers (2026-09-18 p060: image
     # noise 1.8-2.9x lower). It covers all fields, calibrators included.
     flags = [kwargs for name, kwargs in calls if name == 'flagdata']
-    assert [f['mode'] for f in flags] == ['tfcrop', 'rflag', 'tfcrop', 'rflag']
-    assert [f.get('datacolumn') for f in flags] == [None, None, 'corrected', 'corrected']
+    assert [f['mode'] for f in flags] == ['elevation', 'tfcrop', 'rflag', 'tfcrop', 'rflag']
+    assert [f.get('datacolumn') for f in flags] == [None, None, None, 'corrected', 'corrected']
     assert all('field' not in f for f in flags)
+
+    # Data above 85 degrees elevation are flagged before anything else, in
+    # every field (issue #48): on 2026-11-06 p060 the source was lost in a
+    # scan at 88-89 degrees, and its bad gains spoiled the target scans either
+    # side through the interpolation in time. CASA computes each antenna's
+    # elevation itself.
+    assert flags[0] == {'vis': '/obs/target_spw0.ms', 'mode': 'elevation', 'upperlimit': 85}
 
     # One bandpass solution per flux-calibrator scan (CASA's bandpass defaults
     # to combine='scan', which averages all scans into one), interpolated
