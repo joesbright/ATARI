@@ -77,12 +77,12 @@ def test_first_generation_calibration_recipe(tmp_path):
     assert [f.get('datacolumn') for f in flags] == [None, None, None, 'corrected', 'corrected']
     assert all('field' not in f for f in flags)
 
-    # Data above 85 degrees elevation are flagged before anything else, in
-    # every field (issue #48): on 2026-11-06 p060 the source was lost in a
-    # scan at 88-89 degrees, and its bad gains spoiled the target scans either
-    # side through the interpolation in time. CASA computes each antenna's
-    # elevation itself.
-    assert flags[0] == {'vis': '/obs/target_spw0.ms', 'mode': 'elevation', 'upperlimit': 85}
+    # Data above 87 degrees elevation, the ATA antennas' limit, are flagged
+    # before anything else, in every field (issue #48): on 2026-11-06 p060 the
+    # source was lost in a scan at 88-89 degrees, and its bad gains spoiled the
+    # target scans either side through the interpolation in time. CASA
+    # computes each antenna's elevation itself.
+    assert flags[0] == {'vis': '/obs/target_spw0.ms', 'mode': 'elevation', 'upperlimit': 87}
 
     # One bandpass solution per flux-calibrator scan (CASA's bandpass defaults
     # to combine='scan', which averages all scans into one), interpolated

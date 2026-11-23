@@ -2,13 +2,12 @@ from atari import write_casa_scripts
 from atari import write_wsclean_scripts
 
 # Data above this elevation (degrees) are flagged before calibration (issue
-# #48). On 2026-11-06 p060 the source was lost in a scan at 88-89 degrees on
-# every antenna, although the azimuth rate needed was small; its bad gains
-# then spoiled the target scans either side through the interpolation in
-# time. 2026-10-27's scan at 87 degrees was fine. No upper limit is published
-# for the ATA (17 degrees is the lower one), and ATA-Utils' survey script
-# observes only below 85, so 85 until the real limit is known.
-ELEVATION_LIMIT = 85
+# #48): the ATA antennas cannot point above 87 degrees (confirmed with ATA
+# staff, 2026-11-23; not in the published literature, which gives only the
+# 17 degree lower limit). On 2026-11-06 p060 a gain-calibrator scan at
+# 88-89 degrees lost the source on every antenna, and its bad gains spoiled
+# the target scans either side through the interpolation in time.
+ELEVATION_LIMIT = 87
 
 
 def write_comments(script_name, target, spw):

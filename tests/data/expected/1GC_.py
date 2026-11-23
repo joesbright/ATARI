@@ -1,7 +1,7 @@
 import numpy as np
 
 ##### AT2026yeh : Spectral Window 0 ######
-flagdata(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',mode='elevation',upperlimit=85)
+flagdata(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',mode='elevation',upperlimit=87)
 flagdata(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',mode='tfcrop')
 flagdata(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',mode='rflag')
 setjy(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',field='3c48',standard='Perley-Butler 2017',usescratch=True)
@@ -18,7 +18,7 @@ flagdata(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',mode='tfcrop',datacolu
 flagdata(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',mode='rflag',datacolumn='corrected')
 statwt(vis='{WORKDIR}/AT2026yeh_spw0/AT2026yeh_spw0.ms',datacolumn='corrected',field='AT2026yeh')
 ##### AT2026yeh : Spectral Window 1 ######
-flagdata(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',mode='elevation',upperlimit=85)
+flagdata(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',mode='elevation',upperlimit=87)
 flagdata(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',mode='tfcrop')
 flagdata(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',mode='rflag')
 setjy(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',field='3c48',standard='Perley-Butler 2017',usescratch=True)
@@ -35,7 +35,7 @@ flagdata(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',mode='tfcrop',datacolu
 flagdata(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',mode='rflag',datacolumn='corrected')
 statwt(vis='{WORKDIR}/AT2026yeh_spw1/AT2026yeh_spw1.ms',datacolumn='corrected',field='AT2026yeh')
 ##### AT2026yeh : Spectral Window 2 ######
-flagdata(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',mode='elevation',upperlimit=85)
+flagdata(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',mode='elevation',upperlimit=87)
 flagdata(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',mode='tfcrop')
 flagdata(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',mode='rflag')
 setjy(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',field='3c48',standard='Perley-Butler 2017',usescratch=True)
@@ -52,7 +52,7 @@ flagdata(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',mode='tfcrop',datacolu
 flagdata(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',mode='rflag',datacolumn='corrected')
 statwt(vis='{WORKDIR}/AT2026yeh_spw2/AT2026yeh_spw2.ms',datacolumn='corrected',field='AT2026yeh')
 ##### AT2026yeh : Spectral Window 3 ######
-flagdata(vis='{WORKDIR}/AT2026yeh_spw3/AT2026yeh_spw3.ms',mode='elevation',upperlimit=85)
+flagdata(vis='{WORKDIR}/AT2026yeh_spw3/AT2026yeh_spw3.ms',mode='elevation',upperlimit=87)
 flagdata(vis='{WORKDIR}/AT2026yeh_spw3/AT2026yeh_spw3.ms',mode='tfcrop')
 flagdata(vis='{WORKDIR}/AT2026yeh_spw3/AT2026yeh_spw3.ms',mode='rflag')
 setjy(vis='{WORKDIR}/AT2026yeh_spw3/AT2026yeh_spw3.ms',field='3c48',standard='Perley-Butler 2017',usescratch=True)
