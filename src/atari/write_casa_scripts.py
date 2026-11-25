@@ -36,6 +36,13 @@ def write_mstransform(vis,
     f.close()
 
 
+def write_elevation_flag(vis, upperlimit, script_name):
+    # Flag every field's data above upperlimit degrees elevation. CASA
+    # computes each antenna's elevation from its position and the time.
+    with open(script_name, 'a') as f:
+        f.write("flagdata(vis='" + vis + "',mode='elevation',upperlimit=" + str(upperlimit) + ")\n")
+
+
 def write_setjy(vis, 
                 field, 
                 script_name):

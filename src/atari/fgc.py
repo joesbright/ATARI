@@ -1,6 +1,14 @@
 from atari import write_casa_scripts
 from atari import write_wsclean_scripts
 
+# Data above this elevation (degrees) are flagged before calibration (issue
+# #48): the ATA antennas cannot point above 87 degrees (confirmed with ATA
+# staff, 2026-11-23; not in the published literature, which gives only the
+# 17 degree lower limit). On 2026-11-06 p060 a gain-calibrator scan at
+# 88-89 degrees lost the source on every antenna, and its bad gains spoiled
+# the target scans either side through the interpolation in time.
+ELEVATION_LIMIT = 87
+
 
 def write_comments(script_name, target, spw):
 
@@ -39,6 +47,7 @@ def first_generation_calibration(myms,
     # track is followed rather than averaged (issue #30). With a single
     # flux-calibrator scan this is the same as before.
 
+    write_casa_scripts.write_elevation_flag(myms, ELEVATION_LIMIT, script_name)
     # set the flux density scale assuming standard flux calibrators 
     write_casa_scripts.write_flagdata(myms, script_name)
     write_casa_scripts.write_setjy(myms, flux_cal, script_name)
