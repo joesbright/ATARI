@@ -1,6 +1,5 @@
 import pytest
 
-from atari import calibrators
 from atari.calibrators import calibrator_problems, classify_field, match_calibrators
 
 
@@ -73,15 +72,3 @@ def test_gain_calibrator_from_extra_file_counts(tmp_path):
     extra.write_text('my_gaincal\n')
     assert calibrator_problems(['3c48', 'my_gaincal', 'AT2026yeh'], str(extra)) == []
 
-
-@pytest.mark.parametrize('names, reference', [
-    (['3C147', '3c286'], '3c286'),
-    (['3C48', '3C147'], '3C48'),
-    (['3c147'], '3c147'),
-    (['3C147', '3C48', '3C286'], '3C286'),
-])
-def test_flux_scale_comes_from_the_most_stable_flux_calibrator(names, reference):
-    # Perley & Butler (2017): 3C286 is constant; 3C48 and 3C147 vary by a few
-    # percent (3C147 read 3-12% above its 2017 model against 3C286 on p060
-    # 2026-10-27 and 11-06).
-    assert calibrators.flux_reference(names) == reference

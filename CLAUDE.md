@@ -25,7 +25,7 @@ Dependencies:
 
 ## Tests
 
-`uv run pytest -rs` (136 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 136 run:
+`uv run pytest -rs` (132 tests). GitHub Actions (`.github/workflows/tests.yml`) runs them on ubuntu for Python 3.10 and 3.13; there the uvh5-route test is skipped. On an ATA node (e.g. comp-node9) all 132 run:
 
 ```bash
 ATARI_CASAPATH=/home/sonata/src/casa-6.6.0-20/bin/casa uv run pytest -rs
@@ -52,7 +52,7 @@ Flow:
 2. **Field classification** (`atari.calibrators.classify_field`):
    - `Stay_put` (any case; `SKIP_FIELDS`) → skipped completely. These scans are recorded while the sources are below the horizon.
    - 3c286, 3c48 or 3c147 (any case; `FLUX_CALIBRATORS`) → flux calibrator (hard-coded).
-     Every flux calibrator in the MS is used (tracks often have one at each end, e.g. 3C286 then 3C147, to calibrate the bandpass at both ends of a long track; issue #44): all are copied into each split, each gets its own `setjy` model, and G0/K0/B0/G1 are solved on all together (`field='3C286,3C147'`; K0 and B0 per scan, interpolated linearly in time). B0 is normalised (`solnorm=True`), so it carries only the shape and G1 all the amplitude; `fluxscale` then sets the scale alone, referenced to the most stable flux calibrator (`calibrators.flux_reference`: 3C286 > 3C48 > 3C147), with the others as transfer fields as a check of their models: their G1 was solved against their own model, so the "flux density" `fluxscale` logs for them is measured/model (1.0 = right; 3C147 was 0.95–1.19, mostly ~1.05–1.10, on 2026-10-27/11-06 p060). Without `solnorm`, B0's amplitude (each calibrator's model scale) would be interpolated in time past `fluxscale`'s control. Each flux calibrator gets `applycal` with its own solutions and is imaged. Tables are named after them all (`3C286_3C147.G0`); with one flux calibrator only `solnorm=True` differs from before.
+     Every flux calibrator in the MS is used (tracks often have one at each end, e.g. 3C286 then 3C147, to calibrate the bandpass at both ends of a long track; issue #44): all are copied into each split, each gets its own `setjy` model, and G0/K0/B0/G1 are solved on all together (`field='3C286,3C147'`; K0 and B0 per scan, interpolated linearly in time; on 2026-10-27/11-06 p060 the bandpass shape changed by 1.5–4% rms in amplitude and ~2° in phase between the ends). B0 is normalised (`solnorm=True`), so it carries only the shape and G1 all the amplitude; otherwise each calibrator's model scale would be interpolated in time past `fluxscale`'s control. `fluxscale` takes all flux calibrators as references (it averages their gains). Each flux calibrator gets `applycal` with its own solutions and is imaged. Tables are named after them all (`3C286_3C147.G0`); with one flux calibrator only `solnorm=True` differs from before. Known limitation: `fluxscale` compares the reference gains with the gain calibrator's gains averaged over the whole track, so gain changes over a track (8–9% low in the first scan, a 10% step mid-track on 2026-11-06) bias the flux scale by a few percent; comparing with the neighbouring gain-calibrator scans would remove this.
    - Name substring-matched by `atari.calibrators.match_calibrators` against `src/atari/data/calibrator_names.dat` plus the optional `--calibrators` file → gain calibrator.
    - Anything else → target.
    - Each target is paired with its nearest gain calibrator.

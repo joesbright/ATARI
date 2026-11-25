@@ -1,5 +1,4 @@
 from atari import write_casa_scripts
-from atari.calibrators import flux_reference
 from atari import write_wsclean_scripts
 
 # Data above this elevation (degrees) are flagged before calibration (issue
@@ -44,19 +43,14 @@ def first_generation_calibration(myms,
     # once per scan, and interpolated in time (on 2026-10-27 and 11-06 p060
     # the bandpass shape changed by 1.5-4% rms in amplitude and ~2 deg in
     # phase between the two ends). The bandpass is normalised (solnorm), so it
-    # carries only the shape and G1 all the amplitude; the flux scale then
-    # comes from fluxscale alone, referenced to the most stable flux
-    # calibrator (calibrators.flux_reference). The others are fluxscale
-    # transfer fields: a check of their models. Their G1 was solved against
-    # their own model, not 1 Jy, so the "flux density" fluxscale logs for them
-    # is measured / model (1.0 = the model is right; 3C147 gave 0.95-1.19 on
-    # 2026-10-27 and 11-06 p060).
+    # carries only the shape and G1 all the amplitude: otherwise each
+    # calibrator's model scale would be interpolated in time with it, past
+    # fluxscale's control. fluxscale then takes the flux scale from all flux
+    # calibrators together (it averages their gains).
     if isinstance(flux_cals, str):
         flux_cals = [flux_cals]
     flux_cals = [str(name) for name in flux_cals]
     flux_selection = ','.join(flux_cals)
-    reference = flux_reference(flux_cals)
-    transfer = [str(phase_cal)] + [name for name in flux_cals if name != reference]
     # Named after the flux calibrators: e.g. 3c48.G0, or 3C48_3C147.G0.
     stem = '_'.join(flux_cals)
     G0_table = stem + '.G0'
@@ -80,7 +74,7 @@ def first_generation_calibration(myms,
     write_casa_scripts.write_bandpass(myms, B0_table, flux_selection, refant, 'B', 'inf', script_name, outdir, gaintable=[G0_table,K0_table], combine='', solnorm=True)
     write_casa_scripts.write_gaincal(myms, G1_table, flux_selection, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table,B0_table,K0_table], spw=g1_spw)
     write_casa_scripts.write_gaincal(myms, G1_table, phase_cal, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table,B0_table,K0_table], append='True', spw=g1_spw)
-    write_casa_scripts.write_fluxscale(myms, G1_table, flux_table, reference, transfer, script_name, outdir)
+    write_casa_scripts.write_fluxscale(myms, G1_table, flux_table, flux_selection, [str(phase_cal)], script_name, outdir)
     # Each flux calibrator with its own gain solutions.
     for flux_cal in flux_cals:
         write_casa_scripts.write_applycal(myms, flux_cal, [flux_table,K0_table,B0_table,G0_table], [str(flux_cal), '',''], ['nearest','','linear'], 'False', script_name, outdir)
