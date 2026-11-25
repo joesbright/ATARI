@@ -47,8 +47,10 @@ def first_generation_calibration(myms,
     # carries only the shape and G1 all the amplitude; the flux scale then
     # comes from fluxscale alone, referenced to the most stable flux
     # calibrator (calibrators.flux_reference). The others are fluxscale
-    # transfer fields, so the log reports their flux on that scale: a check
-    # of their models.
+    # transfer fields: a check of their models. Their G1 was solved against
+    # their own model, not 1 Jy, so the "flux density" fluxscale logs for them
+    # is measured / model (1.0 = the model is right; 3C147 gave 0.95-1.19 on
+    # 2026-10-27 and 11-06 p060).
     if isinstance(flux_cals, str):
         flux_cals = [flux_cals]
     flux_cals = [str(name) for name in flux_cals]
