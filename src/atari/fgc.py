@@ -26,7 +26,7 @@ def write_dependencies(script_name):
 
 def first_generation_calibration(myms,
                                  target,
-                                 flux_cal,
+                                 flux_cals,
                                  phase_cal,
                                  refant,
                                  script_name, 
@@ -36,11 +36,28 @@ def first_generation_calibration(myms,
     # with no data out of the G1 solves: fluxscale reports each spw's flux
     # density at the centre of G1's selected channels, flagged or not.
     
-    G0_table = str(flux_cal) + '.G0'
-    K0_table = str(flux_cal) + '.K0'
-    B0_table = str(flux_cal) + '.B0'
-    G1_table = str(flux_cal) + '.G1'
-    flux_table = str(flux_cal) + '.fluxscale'
+    # flux_cals: the flux calibrators' names, in field order. Many tracks
+    # observe one at each end (e.g. 3C286 then 3C147; issue #44) so that the
+    # bandpass is calibrated at both ends of a long track: each gets its own
+    # model (setjy), and the delays and bandpass are solved on all of them,
+    # once per scan, and interpolated in time (on 2026-10-27 and 11-06 p060
+    # the bandpass shape changed by 1.5-4% rms in amplitude and ~2 deg in
+    # phase between the two ends). The bandpass is normalised (solnorm), so it
+    # carries only the shape and G1 all the amplitude: otherwise each
+    # calibrator's model scale would be interpolated in time with it, past
+    # fluxscale's control. fluxscale then takes the flux scale from all flux
+    # calibrators together (it averages their gains).
+    if isinstance(flux_cals, str):
+        flux_cals = [flux_cals]
+    flux_cals = [str(name) for name in flux_cals]
+    flux_selection = ','.join(flux_cals)
+    # Named after the flux calibrators: e.g. 3c48.G0, or 3C48_3C147.G0.
+    stem = '_'.join(flux_cals)
+    G0_table = stem + '.G0'
+    K0_table = stem + '.K0'
+    B0_table = stem + '.B0'
+    G1_table = stem + '.G1'
+    flux_table = stem + '.fluxscale'
 
     # B0 is solved once per flux-calibrator scan (combine='') and applied with
     # linear interpolation in time, so a bandpass that drifts over a long
@@ -50,14 +67,17 @@ def first_generation_calibration(myms,
     write_casa_scripts.write_elevation_flag(myms, ELEVATION_LIMIT, script_name)
     # set the flux density scale assuming standard flux calibrators 
     write_casa_scripts.write_flagdata(myms, script_name)
-    write_casa_scripts.write_setjy(myms, flux_cal, script_name)
-    write_casa_scripts.write_gaincal(myms, G0_table, flux_cal, refant, 'p', 'int', script_name, outdir)
-    write_casa_scripts.write_gaincal(myms, K0_table, flux_cal, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table], gaintype='K')
-    write_casa_scripts.write_bandpass(myms, B0_table, flux_cal, refant, 'B', 'inf', script_name, outdir, gaintable=[G0_table,K0_table], combine='')
-    write_casa_scripts.write_gaincal(myms, G1_table, flux_cal, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table,B0_table,K0_table], spw=g1_spw)
+    for flux_cal in flux_cals:
+        write_casa_scripts.write_setjy(myms, flux_cal, script_name)
+    write_casa_scripts.write_gaincal(myms, G0_table, flux_selection, refant, 'p', 'int', script_name, outdir)
+    write_casa_scripts.write_gaincal(myms, K0_table, flux_selection, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table], gaintype='K')
+    write_casa_scripts.write_bandpass(myms, B0_table, flux_selection, refant, 'B', 'inf', script_name, outdir, gaintable=[G0_table,K0_table], combine='', solnorm=True)
+    write_casa_scripts.write_gaincal(myms, G1_table, flux_selection, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table,B0_table,K0_table], spw=g1_spw)
     write_casa_scripts.write_gaincal(myms, G1_table, phase_cal, refant, 'ap', 'inf', script_name, outdir, gaintable=[G0_table,B0_table,K0_table], append='True', spw=g1_spw)
-    write_casa_scripts.write_fluxscale(myms, G1_table, flux_table, flux_cal, [str(phase_cal)], script_name, outdir)
-    write_casa_scripts.write_applycal(myms, flux_cal, [flux_table,K0_table,B0_table,G0_table], [str(flux_cal), '',''], ['nearest','','linear'], 'False', script_name, outdir)
+    write_casa_scripts.write_fluxscale(myms, G1_table, flux_table, flux_selection, [str(phase_cal)], script_name, outdir)
+    # Each flux calibrator with its own gain solutions.
+    for flux_cal in flux_cals:
+        write_casa_scripts.write_applycal(myms, flux_cal, [flux_table,K0_table,B0_table,G0_table], [str(flux_cal), '',''], ['nearest','','linear'], 'False', script_name, outdir)
     write_casa_scripts.write_applycal(myms, phase_cal, [flux_table,K0_table,B0_table,G0_table], [str(phase_cal), '',''], ['nearest','','linear'], 'False', script_name, outdir)
     write_casa_scripts.write_applycal(myms, target, [flux_table,K0_table,B0_table,G0_table], [str(phase_cal), '',''], ['linear','','linear'], 'False', script_name, outdir)
     # Flag the calibrated data, which is what gets imaged (on 2026-09-18 p060
@@ -73,17 +93,17 @@ def first_generation_calibration(myms,
 
 def image_all_fields(myms,
                   target,
-                  flux_cal,
+                  flux_cals,
                   phase_cal,
                   target_name,
-                  flux_cal_name,
+                  flux_cal_names,
                   phase_cal_name,
                   script_name,
                   size,
                   scale,
                   outdir):
     
-    write_wsclean_scripts.write_wsclean(myms, target, flux_cal, phase_cal, target_name, flux_cal_name, phase_cal_name, script_name, size, scale, outdir)
+    write_wsclean_scripts.write_wsclean(myms, target, flux_cals, phase_cal, target_name, flux_cal_names, phase_cal_name, script_name, size, scale, outdir)
     
     return None
 

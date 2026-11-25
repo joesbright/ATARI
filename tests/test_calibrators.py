@@ -71,3 +71,4 @@ def test_gain_calibrator_from_extra_file_counts(tmp_path):
     extra = tmp_path / 'my_calibrators.dat'
     extra.write_text('my_gaincal\n')
     assert calibrator_problems(['3c48', 'my_gaincal', 'AT2026yeh'], str(extra)) == []
+

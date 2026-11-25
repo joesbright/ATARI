@@ -89,6 +89,11 @@ def test_first_generation_calibration_recipe(tmp_path):
     # linearly in time when applied (issue #30).
     bandpass = [kwargs for name, kwargs in calls if name == 'bandpass']
     assert len(bandpass) == 1 and bandpass[0]['combine'] == ''
+    # Normalised, so B0 carries only the shape and G1 all the amplitude:
+    # fluxscale only rescales G1, so with bandpasses interpolated in time
+    # between different flux calibrators (issue #44) an unnormalised B0 would
+    # carry each calibrator's model scale past fluxscale's control.
+    assert bandpass[0]['solnorm'] is True
     b_table = bandpass[0]['caltable']
     for name, kwargs in calls:
         if name == 'applycal':

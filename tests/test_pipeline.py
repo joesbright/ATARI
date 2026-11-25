@@ -16,6 +16,7 @@ with
 and review the difference with `git diff tests/data/expected` before
 committing it.
 """
+import ast
 import os
 import re
 import shutil
@@ -182,6 +183,117 @@ def test_terminal_shows_key_information_only(tmp_path, monkeypatch, capfd):
     assert 'No such file' not in terminal  # cleaning up a previous run
     logfile = tmp_path / 'logs' / 'atari_setup.log'
     assert 'Flux calibrator: 3c48' in logfile.read_text()
+
+
+def add_second_flux_calibrator(ms, name='3C147'):
+    # Many tracks observe a flux calibrator at each end (e.g. 3C48 then
+    # 3C147). Make such an observation from the test MS by adding a copy of
+    # its 3c48 scan, renamed, after the last scan: enough to check which
+    # fields atari-setup selects and what it writes, not to calibrate.
+    with table(str(ms), readonly=False, ack=False) as t:
+        last = t.getcol('TIME').max()
+        scan = t.query('FIELD_ID == 0')
+        scan.copy(str(ms) + '_scan', deep=True).close()
+        scan.close()
+        copy = table(str(ms) + '_scan', readonly=False, ack=False)
+        new_field = table(str(ms) + '/FIELD', ack=False).nrows()
+        shift = last - copy.getcol('TIME').min() + 600  # 10 min after the target
+        copy.putcol('TIME', copy.getcol('TIME') + shift)
+        copy.putcol('TIME_CENTROID', copy.getcol('TIME_CENTROID') + shift)
+        copy.putcol('FIELD_ID', [new_field] * copy.nrows())
+        copy.putcol('SCAN_NUMBER', [t.getcol('SCAN_NUMBER').max() + 1] * copy.nrows())
+        copy.copyrows(t)
+        copy.close()
+    shutil.rmtree(str(ms) + '_scan')
+    with table(str(ms) + '/FIELD', readonly=False, ack=False) as f:
+        source_id = f.getcol('SOURCE_ID').max() + 1
+        f.copyrows(f, startrowin=0, nrow=1)
+        f.putcell('NAME', f.nrows() - 1, name)
+        f.putcell('SOURCE_ID', f.nrows() - 1, source_id)
+    with table(str(ms) + '/SOURCE', readonly=False, ack=False) as s:
+        rows = [i for i, sid in enumerate(s.getcol('SOURCE_ID')) if sid == 0]
+        for i in rows:
+            s.copyrows(s, startrowin=i, nrow=1)
+            s.putcell('NAME', s.nrows() - 1, name)
+            s.putcell('SOURCE_ID', s.nrows() - 1, source_id)
+    return new_field
+
+
+def casa_calls(script):
+    # The CASA task calls in a generated script, in order, as
+    # (task, {argument: value}).
+    calls = []
+    for statement in ast.parse(script.read_text()).body:
+        if isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call):
+            call = statement.value
+            calls.append((call.func.id, {k.arg: ast.literal_eval(k.value) for k in call.keywords}))
+    return calls
+
+
+def field_set(selection):
+    # A CASA field selection ('3c48,3C147' or a list) as a set of names.
+    if isinstance(selection, str):
+        selection = selection.split(',')
+    return {name.strip() for name in selection if name.strip()}
+
+
+@pytest.mark.skipif(not TEST_MS.exists(), reason='tests/data/master_ms.ms is missing')
+def test_two_flux_calibrators_are_both_used(tmp_path, monkeypatch):
+    # Issue #44. With a flux calibrator at each end of the track, both must be
+    # in every split, both given their own model, and both used for the
+    # bandpass (one solution per scan, interpolated in time), gains and flux
+    # scale; each is imaged so it can be checked against its model.
+    ms = tmp_path / TEST_MS.name
+    shutil.copytree(TEST_MS, ms)
+    second = add_second_flux_calibrator(ms)
+    monkeypatch.chdir(tmp_path)
+
+    main([str(ms), '--casapath', 'casa', '--refant', '3'])
+
+    flux = {'3c48', '3C147'}
+    gain = '0038+416'
+    # Every problem is collected, so one run shows the whole picture.
+    problems = []
+    splits = sorted(tmp_path.glob('*_spw[0-9]/*_spw[0-9].ms'))
+    assert splits
+    for split in splits:
+        name = split.parent.name
+        with table(str(split), ack=False) as t:
+            ids = set(t.getcol('FIELD_ID'))
+        with table(str(split) + '/FIELD', ack=False) as f:
+            present = {f.getcol('NAME')[i] for i in ids}
+        if not flux <= present:
+            problems.append(name + ': split has fields ' + str(sorted(present)))
+
+        calls = casa_calls(split.parent / '1GC.py')
+        setjy = set().union(*[field_set(a['field']) for task, a in calls if task == 'setjy'])
+        if setjy != flux:
+            problems.append(name + ': setjy on ' + str(sorted(setjy)))
+        for task, a in calls:
+            if task in ('gaincal', 'bandpass') and field_set(a['field']) != {gain} and field_set(a['field']) != flux:
+                problems.append(name + ': ' + task + ' (' + os.path.basename(a['caltable']) + ') solved on '
+                                + str(sorted(field_set(a['field']))))
+        # The flux scale comes from all flux calibrators together: fluxscale
+        # averages their gains, with only the gain calibrator transferred.
+        for task, a in calls:
+            if task == 'fluxscale' and (field_set(a['reference']) != flux or field_set(a['transfer']) != {gain}):
+                problems.append(name + ': fluxscale reference ' + str(sorted(field_set(a['reference'])))
+                                + ', transfer ' + str(sorted(field_set(a['transfer']))))
+            if task == 'bandpass' and a.get('solnorm') is not True:
+                problems.append(name + ': bandpass not normalised')
+        for source in flux:
+            if not any(task == 'applycal' and a['field'] == source and a['gainfield'][0] == source
+                       for task, a in calls):
+                problems.append(name + ': no applycal of ' + source + ' with its own solutions')
+
+    image = (tmp_path / 'image_.sh').read_text()
+    for split in splits:
+        line = re.search(r'^wsclean .*-name ' + re.escape(str(split.parent)) + r'/IMAGES/3C147_automask .*$',
+                         image, flags=re.M)
+        if not line or ' -field ' + str(second) + ' ' not in line.group(0):
+            problems.append(split.parent.name + ': 3C147 not imaged')
+
+    assert not problems, '\n'.join(problems)
 
 
 @pytest.mark.skipif(CASA is None or shutil.which('aoflagger') is None,
